@@ -1,0 +1,8 @@
+# Core dependencies - 根据实际代码分析和开发环境确定
+# 开发环境: numpy 2.0.0, pandas 2.2.2, scipy 1.14.0
+numpy>=1.21.0
+pandas>=1.5.0
+scipy>=1.9.0
+
+# Optional dependencies for development
+# Install with: pip install -r requirements-dev.txt

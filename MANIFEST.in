@@ -1,0 +1,44 @@
+# Include the README
+include README.md
+
+# Include the license
+include LICENSE
+
+# Include requirements files
+include requirements.txt
+include requirements-dev.txt
+
+# Include configuration files
+include pyproject.toml
+include MANIFEST.in
+
+# Include documentation
+recursive-include docs *.rst *.md *.py *.txt *.yml *.yaml
+
+# Include examples
+recursive-include examples *.py *.ipynb *.md *.txt *.csv
+
+# Include tests
+recursive-include tests *.py
+
+# Exclude compiled Python files
+global-exclude *.pyc
+global-exclude *.pyo
+global-exclude *.pyd
+global-exclude __pycache__
+global-exclude *.so
+global-exclude *.dylib
+
+# Exclude version control files
+global-exclude .git*
+global-exclude .svn*
+
+# Exclude IDE files
+global-exclude .vscode*
+global-exclude .idea*
+global-exclude *.swp
+global-exclude *.swo
+
+# Exclude OS files
+global-exclude .DS_Store
+global-exclude Thumbs.db
