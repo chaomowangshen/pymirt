@@ -155,3 +155,6 @@ Thanks to all researchers who have contributed to the development of Item Respon
   - Support for unidimensional and multidimensional IRT models
   - EM and MCEM estimation methods
   - Initial release
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
