@@ -256,7 +256,7 @@ def example_m2pl_mc():
     a_est, d_est, theta_est = mirt(
         response_df=response_df,
         Q=Q,
-        method='mc',
+        method='mcem',
         model='m2pl',
         n_samples=100,
         burn_in=100,
@@ -367,7 +367,7 @@ def example_mgrm_step_mc():
     a_est, d_est, theta_est = mirt(
         response_df=response_df,
         Q=Q,
-        method='mc',
+        method='mcem',
         model='mgrm_step',
         n_categories=n_categories,
         n_samples=100,
@@ -479,7 +479,7 @@ def example_mgrm_stand_mc():
     a_est, d_est, theta_est = mirt(
         response_df=response_df,
         Q=Q,
-        method='mc',
+        method='mcem',
         model='mgrm_stand',
         n_categories=n_categories,
         n_samples=100,

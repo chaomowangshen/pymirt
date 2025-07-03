@@ -109,7 +109,7 @@ print(f"Ability estimates: {theta_est}")
 ### mirt() function parameters
 - `response_df`: Response matrix (DataFrame)
 - `Q`: Item loading matrix (numpy array)
-- `method`: Estimation method ('em' or 'mc' for MCEM). Note: 'em' method only supports up to 3 dimensions.
+- `method`: Estimation method ('em' or 'mcem'). Note: 'em' method only supports up to 3 dimensions.
 - `model`: Multidimensional IRT model type ('m2pl', 'mgrm_step', or 'mgrm_stand'). mgrm_stand is the standard mgrm implementation, grm_step estimates threshold parameters step by step.
 - `n_quadrature`: Number of quadrature points (for EM method)
 - `n_samples`: Number of MCMC samples (for MCEM method)

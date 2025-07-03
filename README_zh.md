@@ -109,7 +109,7 @@ print(f"能力估计: {theta_est}")
 ### mirt() 函数参数
 - `response_df`: 被试作答矩阵（DataFrame）
 - `Q`: 项目特征矩阵（numpy array）
-- `method`: 估计方法（'em' 或 'mc'）。注:em方法仅支持3维及以下
+- `method`: 估计方法（'em' 或 'mcem'）。注:em方法仅支持3维及以下
 - `model`: 多维 IRT 模型类型（'m2pl' 或 'mgrm_step'或'mgrm_stand'）。mgrm_stand为标准mgrm实现，mgrm_step为分步估计阈值参数。
 - `n_quadrature`: 求积点数（用于 EM 方法）
 - `n_samples`: MCMC 样本数（用于 MCEM 方法）

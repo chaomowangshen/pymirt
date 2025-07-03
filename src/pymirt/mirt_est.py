@@ -27,13 +27,13 @@ def mirt(
     参数:
     response_df (pd.DataFrame): 被试作答矩阵，行表示被试，列表示项目。
     Q (np.array): 项目特征矩阵，形状为 (n_items, n_dimensions)，每行表示一个项目在各维度上的特征。
-    method (str): IRT估计方法，支持'em'、'mc'。
+    method (str): IRT估计方法，支持'em'、'mcem'。
     model (str): IRT模型类型，支持'm2pl'、'mgrm_step'、'mgrm_stand'。
     n_categories (list,np.array or None): 每个项目的类别数，若为None则表示2PL模型。
     n_quadrature (int): 高斯-厄米特求积点数，默认为15。仅在method为'em'时有效。
-    n_samples (int): MCMC有效采样次数，默认为100。仅在method为'mc'时有效。
-    burn_in (int): MCMC烧入期，默认为100。仅在method为'mc'时有效。
-    sample_interval (int): MCMC采样间隔，默认为10。开始10此次均采样，此后每隔sample_interval次采样一次。仅在method为'mc'时有效。
+    n_samples (int): MCMC有效采样次数，默认为100。仅在method为'mcem'时有效。
+    burn_in (int): MCMC烧入期，默认为100。仅在method为'mcem'时有效。
+    sample_interval (int): MCMC采样间隔，默认为10。开始10此次均采样，此后每隔sample_interval次采样一次。仅在method为'mcem'时有效。
     max_iter (int): 最大迭代次数，默认为100。
     tol (float): 收敛容忍度，默认为1e-4。
     verbose (bool): 是否打印详细信息，默认为False。
@@ -48,9 +48,9 @@ def mirt(
         raise ValueError("Q矩阵必须为二维数组，请检查Q矩阵。")
 
     #查看method和model是否符合要求
-    if method not in ['em', 'mc']:
+    if method not in ['em', 'mcem']:
         raise ValueError(
-            f"method参数必须为'em'或'mc'，当前方法为{method}。\n"
+            f"method参数必须为'em'或'mcem'，当前方法为{method}。\n"
         )
     if model not in ['m2pl', 'mgrm_step',  'mgrm_stand']:
         raise ValueError(
@@ -93,9 +93,9 @@ def mirt(
         )
 
     #检查模型
-    if dim>3 and method != 'mc':
+    if dim>3 and method != 'mcem':
         raise ValueError(
-            f"3维以上仅支持采用mc方法进行估计，请从新选择方法。\n"
+            f"3维以上仅支持采用mcem方法进行估计，请从新选择方法。\n"
         )
     elif 2<=dim<4 and method=='em':
         if n_quadrature > 30:
@@ -115,9 +115,9 @@ def mirt(
             raise ValueError(
                 f"n_quadrature必须小于等于50，当前n_quadrature为{n_quadrature}。\n"
             )
-    elif dim==1 and method=='mc':
+    elif dim==1 and method=='mcem':
         raise ValueError(
-            f"单维IRT模型仅支持采用高斯-厄米特求积法进行估计。\n"
+            f"单维IRT模型仅支持采用em方法进行估计。\n"
         )
 
     #根据method和model传入数据，估计参数
@@ -151,7 +151,7 @@ def mirt(
                 response_matrix, mask_matrix, a_est, d_params_padded, d_mask,
                 n_categories, quad_points_nd, quad_weights_nd
             )
-    elif method == 'mc':
+    elif method == 'mcem':
         if model == 'm2pl':
             a_est, d_est, theta_est = mirt_em_mc(
                 response_matrix, mask_matrix, Q,
