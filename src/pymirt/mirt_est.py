@@ -31,8 +31,8 @@ def mirt(
     model (str): IRT模型类型，支持'm2pl'、'mgrm_step'、'mgrm_stand'。
     n_categories (list,np.array or None): 每个项目的类别数，若为None则表示2PL模型。
     n_quadrature (int): 高斯-厄米特求积点数，默认为15。仅在method为'em'时有效。
-    n_samples (int): MCMC有效采样次数，默认为300。仅在method为'mc'时有效。
-    burn_in (int): MCMC烧入期，默认为200。仅在method为'mc'时有效。
+    n_samples (int): MCMC有效采样次数，默认为100。仅在method为'mc'时有效。
+    burn_in (int): MCMC烧入期，默认为100。仅在method为'mc'时有效。
     sample_interval (int): MCMC采样间隔，默认为10。开始10此次均采样，此后每隔sample_interval次采样一次。仅在method为'mc'时有效。
     max_iter (int): 最大迭代次数，默认为100。
     tol (float): 收敛容忍度，默认为1e-4。
@@ -48,11 +48,11 @@ def mirt(
         raise ValueError("Q矩阵必须为二维数组，请检查Q矩阵。")
 
     #查看method和model是否符合要求
-    if method.lower() not in ['em', 'mc']:
+    if method not in ['em', 'mc']:
         raise ValueError(
             f"method参数必须为'em'或'mc'，当前方法为{method}。\n"
         )
-    if model.lower() not in ['m2pl', 'mgrm_step',  'mgrm_stand']:
+    if model not in ['m2pl', 'mgrm_step',  'mgrm_stand']:
         raise ValueError(
             f"model参数必须为'm2pl', 'mgrm_step',  'mgrm_stand'，当前模型为{model}。\n"
         )
@@ -93,11 +93,11 @@ def mirt(
         )
 
     #检查模型
-    if dim>3 and method.lower() != 'mc':
+    if dim>3 and method != 'mc':
         raise ValueError(
             f"3维以上仅支持采用mc方法进行估计，请从新选择方法。\n"
         )
-    elif 2<=dim<4 and method.lower()=='em':
+    elif 2<=dim<4 and method=='em':
         if n_quadrature > 30:
             print(
                 "警告: 采用高斯-厄米特求积法时，节点数过大可能导致计算开销过大。\n" +
@@ -115,15 +115,15 @@ def mirt(
             raise ValueError(
                 f"n_quadrature必须小于等于50，当前n_quadrature为{n_quadrature}。\n"
             )
-    elif dim==1 and method.lower()=='mc':
+    elif dim==1 and method=='mc':
         raise ValueError(
             f"单维IRT模型仅支持采用高斯-厄米特求积法进行估计。\n"
         )
 
     #根据method和model传入数据，估计参数
-    if method.lower() == 'em':
+    if method == 'em':
         quad_points_nd, quad_weights_nd = create_mirt_quadrature(n_quadrature, dim)
-        if model.lower() == 'm2pl':
+        if model == 'm2pl':
             a_est, d_est = mirt_em_gh(
                 response_matrix, mask_matrix, Q, 
                 n_quadrature=n_quadrature,max_iter=max_iter, tol=tol, verbose=verbose
@@ -131,7 +131,7 @@ def mirt(
             theta_est = eap_m2pl(
                 response_matrix, mask_matrix, a_est, d_est,quad_points_nd, quad_weights_nd
                 )
-        elif model.lower() == 'mgrm_step':
+        elif model == 'mgrm_step':
             a_est, d_est = mgrm_em_gh_stepwise(
                 response_matrix, mask_matrix, Q, n_categories,
                 n_quadrature=n_quadrature, max_iter=max_iter, tol=tol, verbose=verbose
@@ -141,7 +141,7 @@ def mirt(
                 response_matrix, mask_matrix, a_est, d_params_padded, d_mask,
                 n_categories, quad_points_nd, quad_weights_nd
             )
-        elif model.lower() == 'mgrm_stand':
+        elif model == 'mgrm_stand':
             a_est, d_est = mgrm_em_gh_standard(
                 response_matrix, mask_matrix, Q, n_categories,
                 n_quadrature=n_quadrature, max_iter=max_iter, tol=tol, verbose=verbose
@@ -151,20 +151,20 @@ def mirt(
                 response_matrix, mask_matrix, a_est, d_params_padded, d_mask,
                 n_categories, quad_points_nd, quad_weights_nd
             )
-    elif method.lower() == 'mc':
-        if model.lower() == 'm2pl':
+    elif method == 'mc':
+        if model == 'm2pl':
             a_est, d_est, theta_est = mirt_em_mc(
                 response_matrix, mask_matrix, Q,
                 n_samples=n_samples, burn_in=burn_in, sample_interval=sample_interval,
                 max_iter=max_iter, tol=tol, verbose=verbose
             )
-        elif model.lower() == 'mgrm_step':
+        elif model == 'mgrm_step':
             a_est, d_est, theta_est = mgrm_em_mc_stepwise(
                 response_matrix, mask_matrix, Q, n_categories,
                 n_samples=n_samples, burn_in=burn_in, sample_interval=sample_interval,
                 max_iter=max_iter, tol=tol, verbose=verbose
             )
-        elif model.lower() == 'mgrm_stand':
+        elif model == 'mgrm_stand':
             a_est, d_est, theta_est = mgrm_em_mc_standard(
                 response_matrix, mask_matrix, Q, n_categories,
                 n_samples=n_samples, burn_in=burn_in, sample_interval=sample_interval,

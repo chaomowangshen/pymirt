@@ -65,7 +65,7 @@ def analyze_data_matrix(df,n_categories=None,verbose=False):
         if min_count < 10:
             issues_found = True
             for category, count in value_counts.items():
-                if count < 5:
+                if count < 10:
                     display_category = int(category) if category == int(category) else category
                     missing_list.append((f" 列 '{col_name}' 中类别 '{display_category}' 的计数为 {count} (小于10)。\n"))
     if not issues_found:

@@ -125,13 +125,18 @@ def mirt_em_mc(response, mask_matrix,Q,n_samples=300,burn_in=200, max_iter=100, 
         if sample_this_iter:
             samples, theta_curr, step_sizes, all_accept = mcmc_sampling(theta_est, a_est, d_est, response, 
                                                                         mask_matrix, rv, step_sizes, burn_in, n_samples,method='m2pl')
-            theta = np.mean(samples, axis=1)
+            theta_est = np.mean(samples, axis=1)
         a_new = np.zeros_like(a_est)
         d_new = np.zeros_like(d_est)
         for j in range(items):
-            theta_flat = samples.reshape(-1, dim) # [n * n_samples, dim]
-            resp_flat = np.repeat(response[:, j], n_samples).reshape(-1,1)   # [n * n_samples,1]
-            mask_flat = np.repeat(mask_matrix[:, j], n_samples).reshape(-1,1)  # [n * n_samples]
+            if n_samples>100:
+                theta_flat = samples[:,-100:,:,].reshape(-1, dim)  # [n * 100, dim]
+                resp_flat = np.repeat(response[:, j], 100).reshape(-1,1)   # [n * 100,1]
+                mask_flat = np.repeat(mask_matrix[:, j], 100).reshape(-1,1)  # [n * 100,1]
+            else:
+                theta_flat = samples.reshape(-1, dim)  # [n * n_samples, dim]
+                resp_flat = np.repeat(response[:, j], n_samples).reshape(-1,1)   # [n * n_samples,1]
+                mask_flat = np.repeat(mask_matrix[:, j], n_samples).reshape(-1,1)  # [n * n_samples]
             active_dims = Q[j] == 1
             num_a = np.sum(active_dims)
             def negative_log_likelihood(params):
@@ -165,7 +170,13 @@ def mirt_em_mc(response, mask_matrix,Q,n_samples=300,burn_in=200, max_iter=100, 
                 print(f"*** 收敛于迭代 {iteration + 1} ***, 总耗时: {total_time:.2f}秒")
             break
         prev_ll = current_ll
-    return a_est, d_est,theta
+    if n_samples+ burn_in < 2000:
+        samples, theta_curr, step_sizes, all_accept = mcmc_sampling(theta_est, a_est, d_est, response, 
+                                                                        mask_matrix, rv, step_sizes, 1000, 1000,method='m2pl')
+        theta_est = np.mean(samples, axis=1)
+    return a_est, d_est,theta_est
+
+
 
 
 
@@ -225,6 +236,8 @@ def estimate_d_only_gh(a_params,response, mask_matrix,Q,n_quadrature=27, max_ite
         current_ll = np.sum(compute_m2pl_log_likelihood(theta_quad, a_params, d_est, response, mask_matrix, posterior))
         delta_ll = current_ll - prev_ll
         total_time += (end_time - start_time)
+        if verbose:
+            print(f"对数似然变化: {delta_ll:.6f}, 耗时: {end_time - start_time:.2f}秒")
         if iteration > 0 and abs(current_ll - prev_ll) < tol:
             print(f"*** 收敛于迭代 {iteration + 1} ***, 总耗时: {total_time:.2f}秒")
             break
@@ -338,9 +351,14 @@ def estimate_d_only_mc(a_params,theta,response, mask_matrix,Q,n_samples=300,burn
             theta = np.mean(samples, axis=1)
         d_new = np.zeros_like(d_est)
         for j in range(items):
-            theta_flat = samples.reshape(-1, dim)
-            resp_flat = np.repeat(response[:, j], n_samples).reshape(-1,1)
-            mask_flat = np.repeat(mask_matrix[:, j], n_samples).reshape(-1,1)
+            if n_samples>100:
+                theta_flat = samples[:,-100:,:,].reshape(-1, dim)  # [n * 100, dim]
+                resp_flat = np.repeat(response[:, j], 100).reshape(-1,1)   # [n * 100,1]
+                mask_flat = np.repeat(mask_matrix[:, j], 100).reshape(-1,1)  # [n * 100,1]
+            else:
+                theta_flat = samples.reshape(-1, dim)  # [n * n_samples, dim]
+                resp_flat = np.repeat(response[:, j], n_samples).reshape(-1,1)   # [n * n_samples,1]
+                mask_flat = np.repeat(mask_matrix[:, j], n_samples).reshape(-1,1)  # [n * n_samples]
             def negative_log_likelihood(d_j):
                 expected_ll = compute_m2pl_item_log_likelihood(theta_flat, a_params[j], d_j, resp_flat, mask_flat)
                 return -expected_ll
@@ -355,6 +373,8 @@ def estimate_d_only_mc(a_params,theta,response, mask_matrix,Q,n_samples=300,burn
         current_ll = np.sum(compute_m2pl_log_likelihood(theta_curr, a_params, d_est, response, mask_matrix))
         delta_ll = current_ll - prev_ll
         total_time_d += (end_time - start_time)
+        if verbose:
+            print(f"对数似然变化: {delta_ll:.6f}, 耗时: {end_time - start_time:.2f}秒")
         if iteration > 0 and abs(current_ll - prev_ll) < tol:
             print(f"*** 收敛于迭代 {iteration + 1} ***, 总耗时: {total_time_d:.2f}秒")
             break
@@ -434,6 +454,10 @@ def mgrm_em_mc_stepwise(response, mask_matrix,Q,n_categories,n_samples=300,burn_
     total_time += (end_time - start_time)
     if verbose:
         print(f"=== 所有阶段完成, 共{max_threshold}阶段, 总耗时: {total_time:.2f}秒 ===")
+    if n_samples + burn_in < 2000:
+        samples, theta_curr, step_sizes, all_accept = mcmc_sampling(theta_est, a_est, d_est, response, 
+                                                                        mask_matrix, rv, step_sizes, 1000, 1000,method='mgrm',n_categories=n_categories)
+        theta_est = np.mean(samples, axis=1)
     return a_est, d_est,theta_est
 
 
@@ -569,10 +593,14 @@ def mgrm_em_mc_standard(response, mask_matrix, Q, n_categories, n_samples=300, b
         a_new = np.zeros_like(a_est)
         d_new = [np.zeros_like(d) for d in d_est]
         for j in range(items):
-            #print(f"处理题目 {j + 1}/{items}")
-            theta_flat = samples.reshape(-1, dim)
-            resp_flat = np.repeat(response[:, j], n_samples).reshape(-1, 1)
-            mask_flat = np.repeat(mask_matrix[:, j], n_samples).reshape(-1, 1)
+            if n_samples>100:
+                theta_flat = samples[:,-100:,:,].reshape(-1, dim)  # [n * 100, dim]
+                resp_flat = np.repeat(response[:, j], 100).reshape(-1,1)   # [n * 100,1]
+                mask_flat = np.repeat(mask_matrix[:, j], 100).reshape(-1,1)  # [n * 100,1]
+            else:
+                theta_flat = samples.reshape(-1, dim)  # [n * n_samples, dim]
+                resp_flat = np.repeat(response[:, j], n_samples).reshape(-1,1)   # [n * n_samples,1]
+                mask_flat = np.repeat(mask_matrix[:, j], n_samples).reshape(-1,1)  # [n * n_samples]
             active_dims = Q[j] == 1
             num_a = np.sum(active_dims)
             k = n_categories[j]
@@ -607,6 +635,10 @@ def mgrm_em_mc_standard(response, mask_matrix, Q, n_categories, n_samples=300, b
                 print(f"*** 收敛于迭代 {iteration + 1} ***, 总耗时: {total_time:.2f}秒")
             break
         prev_ll = current_ll
+    if n_samples + burn_in < 2000:
+        samples, theta_curr, step_sizes, all_accept = mcmc_sampling(theta_est, a_est, d_est, response, 
+                                                                        mask_matrix, rv, step_sizes, 1000, 1000,method='mgrm',n_categories=n_categories)
+        theta_est = np.mean(samples, axis=1)
     return a_est, d_est, theta_est
 
 
