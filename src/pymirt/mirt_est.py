@@ -42,7 +42,12 @@ def mirt(
     d_est (np.array)或List: 项目阈值参数或列表，列表中为单维数组。
     theta_est (np.array): 被试的能力估计值(n_subjects,dim)。
     '''
-
+    if model.lower() == 'm2pl':
+    # 检查排除 NA 后是否仅含 0 或 1（兼容整数和浮点数）
+        valid_values = {0, 1, 0.0, 1.0}
+        stacked = response_df.stack()  # 将数据转为单列（自动排除 NA）
+        if not stacked.isin(valid_values).all():
+            raise ValueError("M2PL模型要求数据（排除缺失值后）必须为二元作答（0或1），请检查数据。")
     Q= np.array(Q)
     if Q.ndim != 2:
         raise ValueError("Q矩阵必须为二维数组，请检查Q矩阵。")

@@ -28,6 +28,13 @@ def irt(
     b_est (np.array)或List: 项目难度参数,2pl时为单维数组，grm时为列表，列表中为单维数组。
     theta_est (np.array): 被试的能力估计值。
     '''
+    if model.lower() == '2pl':
+        # 检查排除 NA 后是否仅含 0 或 1（兼容整数和浮点数）
+        valid_values = {0, 1, 0.0, 1.0}
+        stacked = response_df.stack()  # 将数据转为单列（自动排除 NA）
+        if not stacked.isin(valid_values).all():
+            raise ValueError("2PL模型要求数据（排除缺失值后）必须为二元作答（0或1），请检查数据。")
+
     if model.lower() not in ['2pl', 'grm_stand',  'grm_step']:
         raise ValueError(
             f"model参数必须为'2pl', 'grm_stand',  'grm_step'，当前模型为{model}。\n"
@@ -65,10 +72,6 @@ def irt(
     elif n_quadrature > 100:
         print("警告: n_quadrature过大，可能导致计算时间过长，请确认是否需要。")
 
-    #检查2pl模型的数据是否符合要求，即是否为二元数据
-    if model.lower() == '2PL':
-        if not all(response_matrix.applymap(lambda x: x in [0, 1]).all()):
-            raise ValueError("2PL模型要求数据为二元作答，请检查数据。")
     #根据method和model传入数据，估计参数
     quad_points,quad_weights=create_irt_quadrature(n_quadrature)
     if model.lower() == '2pl':

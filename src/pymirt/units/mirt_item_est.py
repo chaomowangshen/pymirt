@@ -167,13 +167,18 @@ def mirt_em_mc(response, mask_matrix,Q,n_samples=300,burn_in=200, max_iter=100, 
             print(f"对数似然变化: {delta_ll:.6f}, 耗时: {end_time - start_time:.2f}秒")
         if iteration > 0 and abs(current_ll - prev_ll) < tol:
             if verbose:
-                print(f"*** 收敛于迭代 {iteration + 1} ***, 总耗时: {total_time:.2f}秒")
+                print(f"*** 收敛于迭代 {iteration + 1} ***")
             break
         prev_ll = current_ll
+    start_time = time.time()
     if n_samples+ burn_in < 2000:
         samples, theta_curr, step_sizes, all_accept = mcmc_sampling(theta_est, a_est, d_est, response, 
                                                                         mask_matrix, rv, step_sizes, 1000, 1000,method='m2pl')
         theta_est = np.mean(samples, axis=1)
+    end_time = time.time()
+    total_time += (end_time - start_time)
+    if verbose:
+        print(f"=== 所有参数估计完成, 总耗时: {total_time:.2f}秒 ===")
     return a_est, d_est,theta_est
 
 
@@ -453,11 +458,16 @@ def mgrm_em_mc_stepwise(response, mask_matrix,Q,n_categories,n_samples=300,burn_
     end_time = time.time()
     total_time += (end_time - start_time)
     if verbose:
-        print(f"=== 所有阶段完成, 共{max_threshold}阶段, 总耗时: {total_time:.2f}秒 ===")
+        print(f"=== 所有阶段完成, 共{max_threshold}阶段 ===")
+    start_time = time.time()
     if n_samples + burn_in < 2000:
         samples, theta_curr, step_sizes, all_accept = mcmc_sampling(theta_est, a_est, d_est, response, 
                                                                         mask_matrix, rv, step_sizes, 1000, 1000,method='mgrm',n_categories=n_categories)
         theta_est = np.mean(samples, axis=1)
+    end_time = time.time()
+    total_time += (end_time - start_time)
+    if verbose:
+        print(f"=== 所有参数估计完成, 总耗时: {total_time:.2f}秒 ===")
     return a_est, d_est,theta_est
 
 
@@ -632,13 +642,18 @@ def mgrm_em_mc_standard(response, mask_matrix, Q, n_categories, n_samples=300, b
             print(f"对数似然变化: {delta_ll:.6f}, 耗时: {end_time - start_time:.2f}秒")
         if iteration > 0 and abs(current_ll - prev_ll) < tol:
             if verbose:
-                print(f"*** 收敛于迭代 {iteration + 1} ***, 总耗时: {total_time:.2f}秒")
+                print(f"*** 收敛于迭代 {iteration + 1} ***")
             break
         prev_ll = current_ll
+    start_time = time.time()
     if n_samples + burn_in < 2000:
         samples, theta_curr, step_sizes, all_accept = mcmc_sampling(theta_est, a_est, d_est, response, 
                                                                         mask_matrix, rv, step_sizes, 1000, 1000,method='mgrm',n_categories=n_categories)
         theta_est = np.mean(samples, axis=1)
+    end_time = time.time()
+    total_time += (end_time - start_time)
+    if verbose:
+        print(f"=== 所有参数估计完成, 总耗时: {total_time:.2f}秒 ===")
     return a_est, d_est, theta_est
 
 
