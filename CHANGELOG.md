@@ -19,6 +19,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Minor bug fixes in edge cases
 
+## [0.1.2] - 2025-07-10
+
+### Added
+- SAEM (Stochastic Approximation EM) method for multidimensional estimation
+- MCMC (Markov Chain Monte Carlo) method for multidimensional estimation
+- Enhanced estimation capabilities for complex multidimensional models
+
+### Changed
+- Improved computational efficiency for high-dimensional models
+- Enhanced method selection options for different model complexities
+
+### Fixed
+- Fixed total time calculation in MCEM estimation
+- Improved binary data validation for 2PL models
+
 ## [0.1.1] - 2025-07-02
 
 ### Added

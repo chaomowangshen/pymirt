@@ -8,7 +8,7 @@ PyMIRT 是一个用于项目反应理论（Item Response Theory, IRT）参数估
 
 - **单维 IRT 模型**：支持 2PL 模型和等级反应模型（GRM）
 - **多维 IRT 模型**：支持多维 2PL 模型（M2PL）和多维等级反应模型（MGRM）
-- **多种估计方法**：支持 EM 算法和蒙特卡洛 EM（MCEM）方法
+- **多种估计方法**：支持 EM 算法、蒙特卡洛 EM（MCEM）方法、随机游走EM(SAEM)算法和马尔可夫链蒙特卡洛(MCMC)方法
 - **能力估计**：支持期望后验估计（EAP）和马尔可夫链蒙特卡洛估计
 - **缺失数据处理**：支持含有缺失数据的作答矩阵进行参数估计
 - **灵活配置**：支持自定义求积点数、迭代次数、收敛容忍度等参数
@@ -87,19 +87,18 @@ print(f"能力估计: {theta_est}")
 
 ### 单维模型
 - **2PL**：二参数逻辑模型
-- **GRM_stand**：标准等级反应模型
-- **GRM_step**：步骤等级反应模型
+- **GRM_**：等级反应模型
 
 ### 多维模型
 - **M2PL**：多维二参数逻辑模型
-- **MGRM_stand**：标准多维等级反应模型
-- **MGRM_step**：分步多维等级反应模型
+- **MGRM**：多维等级反应模型
 
 ## 参数说明
 
 ### irt() 函数参数
 - `response_df`: 被试作答矩阵（DataFrame）
-- `model`: IRT 模型类型（'2pl', 'grm_stand', 'grm_step'）。grm_stand为标准grm实现，grm_step为分步估计难度参数。
+- `model`: IRT 模型类型（'2pl', 'grm'）。
+- `grm_type`: grm 估计类型（'step', 'stand'）。step为分步估计,stand为标准实现。
 - `n_quadrature`: 高斯-厄米特求积点数
 - `n_categories`: 项目类别数（用于等级反应模型）
 - `max_iter`: 最大迭代次数
@@ -109,11 +108,12 @@ print(f"能力估计: {theta_est}")
 ### mirt() 函数参数
 - `response_df`: 被试作答矩阵（DataFrame）
 - `Q`: 项目特征矩阵（numpy array）
-- `method`: 估计方法（'em' 或 'mcem'）。注:em方法仅支持3维及以下
-- `model`: 多维 IRT 模型类型（'m2pl' 或 'mgrm_step'或'mgrm_stand'）。mgrm_stand为标准mgrm实现，mgrm_step为分步估计阈值参数。
+- `method`: 估计方法（'em' 、 'mcem' 、 'saem' 、 'mcmc'）。注:em方法仅支持3维及以下
+- `model`: 多维 IRT 模型类型（'m2pl' 或 'mgrm'）。
+- `grm_type`: mgrm 估计类型（'step', 'stand'）。step为分步估计,stand为标准实现。
 - `n_quadrature`: 求积点数（用于 EM 方法）
-- `n_samples`: MCMC 样本数（用于 MCEM 方法）
-- `burn_in`: MCMC 预热期（用于 MCEM 方法）
+- `n_samples`: MCMC 样本数（用于 MCEM和MCMC 方法）
+- `burn_in`: MCMC 预热期（用于 MCEM和MCMC 方法）
 - `sample_interval`: MCMC 采样间隔（用于 MCEM 方法）
 - `max_iter`: 最大迭代次数
 - `tol`: 收敛容忍度
@@ -216,13 +216,18 @@ isort src/
   title = {PyMIRT: A Python Package for Item Response Theory Parameter Estimation},
   year = {2025},
   url = {https://github.com/chaomowangshen/pymirt},
-  version = {0.1.1}
+  version = {0.1.2}
 }
 ```
 
 ## 版本历史
 
-- **v0.1.1** (2025-07-02) - 当前版本
+- **v0.1.2** (2025-07-10) - 当前版本
+  - 在多维估计中增加了 SAEM 和 MCMC 方法
+  - 增强了复杂模型的估计能力
+  - 提高了计算效率
+
+- **v0.1.1** (2025-07-02)
   - 支持单维和多维 IRT 模型
   - 支持 EM 和 MCEM 估计方法
   - 完整的包结构和文档

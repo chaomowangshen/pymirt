@@ -1,7 +1,10 @@
 from .units import (
-    contains_identity_matrix,analyze_data_matrix,mirt_em_gh,mirt_em_mc,pad_grm_parameters,
-    mgrm_em_gh_stepwise,mgrm_em_mc_stepwise,mgrm_em_gh_standard,mgrm_em_mc_standard,create_mirt_quadrature,
-    eap_m2pl,eap_mgrm
+    contains_identity_matrix,analyze_data_matrix,pad_grm_parameters,create_mirt_quadrature,
+    mirt_em,mgrm_em_stepwise,mgrm_em_standard,
+    mirt_mcem,mgrm_mcem_stepwise,mgrm_mcem_standard,
+    mirt_mcmc,mgrm_mcmc_stepwise,mgrm_mcmc_standard,
+    mirt_saem,mgrm_saem_stepwise,mgrm_saem_standard,
+    eap_m2pl,eap_mgrm,mc_m2pl,mc_mgrm
     )
 import numpy as np
 import pandas as pd
@@ -10,9 +13,10 @@ import pandas as pd
 
 def mirt(
         response_df: pd.DataFrame,
-        Q:np.array,
+        Q: np.array,
         method='em',
         model='m2pl',
+        grm_type='step',
         n_categories=None,
         n_quadrature: int = 15,
         n_samples: int = 100,
@@ -27,12 +31,13 @@ def mirt(
     参数:
     response_df (pd.DataFrame): 被试作答矩阵，行表示被试，列表示项目。
     Q (np.array): 项目特征矩阵，形状为 (n_items, n_dimensions)，每行表示一个项目在各维度上的特征。
-    method (str): IRT估计方法，支持'em'、'mcem'。
-    model (str): IRT模型类型，支持'm2pl'、'mgrm_step'、'mgrm_stand'。
+    method (str): IRT估计方法，支持'em'、'mcem', 'saem'、'mcmc'。
+    model (str): IRT模型类型，支持'm2pl'、'mgrm'。
+    grm_type (str): 多级评分模型类型，支持'step'、'stand'，仅在model为'mgrm'时有效，默认为'step'。
     n_categories (list,np.array or None): 每个项目的类别数，若为None则表示2PL模型。
     n_quadrature (int): 高斯-厄米特求积点数，默认为15。仅在method为'em'时有效。
-    n_samples (int): MCMC有效采样次数，默认为100。仅在method为'mcem'时有效。
-    burn_in (int): MCMC烧入期，默认为100。仅在method为'mcem'时有效。
+    n_samples (int): MCMC有效采样次数，默认为100。仅在method为'mcem'和'mcmc'时有效。
+    burn_in (int): MCMC烧入期，默认为100。仅在method为'mcem'和'mcmc'时有效。
     sample_interval (int): MCMC采样间隔，默认为10。开始10此次均采样，此后每隔sample_interval次采样一次。仅在method为'mcem'时有效。
     max_iter (int): 最大迭代次数，默认为100。
     tol (float): 收敛容忍度，默认为1e-4。
@@ -42,7 +47,10 @@ def mirt(
     d_est (np.array)或List: 项目阈值参数或列表，列表中为单维数组。
     theta_est (np.array): 被试的能力估计值(n_subjects,dim)。
     '''
-    if model.lower() == 'm2pl':
+    method = method.lower()
+    model=model.lower()
+    grm_type= grm_type.lower()
+    if model == 'm2pl':
     # 检查排除 NA 后是否仅含 0 或 1（兼容整数和浮点数）
         valid_values = {0, 1, 0.0, 1.0}
         stacked = response_df.stack()  # 将数据转为单列（自动排除 NA）
@@ -53,13 +61,18 @@ def mirt(
         raise ValueError("Q矩阵必须为二维数组，请检查Q矩阵。")
 
     #查看method和model是否符合要求
-    if method not in ['em', 'mcem']:
+    if method not in ['em', 'mcem','saem', 'mcmc']:
         raise ValueError(
-            f"method参数必须为'em'或'mcem'，当前方法为{method}。\n"
+            f"method参数必须为'em'、'mcem'、'saem'或'mcmc'，当前方法为{method}。\n"
         )
-    if model not in ['m2pl', 'mgrm_step',  'mgrm_stand']:
+    if model not in ['m2pl', 'mgrm']:
         raise ValueError(
-            f"model参数必须为'm2pl', 'mgrm_step',  'mgrm_stand'，当前模型为{model}。\n"
+            f"model参数必须为'm2pl'或'mgrm'，当前模型为{model}。\n"
+        )
+    #检查grm_type参数是否正确
+    if grm_type not in ['step', 'stand']:
+        raise ValueError(
+            f"grm_type参数必须为'step'或'stand'，当前类型为{grm_type}。\n"
         )
     #检查n_categories是否为None或list或单维np.array
     if n_categories is not None:
@@ -70,14 +83,13 @@ def mirt(
         else:
             raise ValueError("n_categories必须为None、列表或一维numpy数组，请检查数据。")
     dim= Q.shape[1]  # 获取维度数
-    # 检查Q是否为二维数组
     #检查Q是否包含单位矩阵
     if not contains_identity_matrix(Q):
         raise ValueError("Q矩阵必须包含单位矩阵，请检查Q矩阵。")
-    #检查Q矩阵是否与response_matrix的列数一致
+    #检查Q矩阵是否与response_df的列数一致
     if response_df.shape[1] != Q.shape[0]:
         raise ValueError(
-            f"Q矩阵的行数({Q.shape[0]})与响应矩阵的列数({response_matrix.shape[1]})不一致，请检查数据。"
+            f"Q矩阵的行数({Q.shape[0]})与响应矩阵的列数({response_df.shape[1]})不一致，请检查数据。"
         )
     # 分析数据矩阵
     if n_categories is not None:
@@ -90,28 +102,28 @@ def mirt(
             "\n".join(issues_list) +
             "请检查数据并修正后再进行MIRT估计。"
         )
-    if missing_flag and model in ['mgrm_stand_gh','mgrm_stand_mc']:
+    if missing_flag and model == 'mgrm' and grm_type == 'stand':
         print(
             "警告: 数据中部分作答数量过少，采用标准grm模型处理可能影响MIRT估计结果。\n" +
             "\n".join(missing_list) +
-            "请考虑采用mgrm_step_gh或mgrm_step_gh模型进行估计。"
+            "请考虑设置grm_type='step'进行估计。"
         )
 
     #检查模型
-    if dim>3 and method != 'mcem':
+    if dim>3 and method not in ['mcem','saem','mcmc']:
         raise ValueError(
-            f"3维以上仅支持采用mcem方法进行估计，请从新选择方法。\n"
+            f"3维以上不支持采用em方法进行估计，请从新选择方法。\n"
         )
     elif 2<=dim<4 and method=='em':
         if n_quadrature > 30:
             print(
-                "警告: 采用高斯-厄米特求积法时，节点数过大可能导致计算开销过大。\n" +
-                "建议将节点数(n_quadrature)设置为30或更小。当前n_quadrature为{n_quadrature}。\n"
+                f"警告: 采用高斯-厄米特求积法时，节点数过大可能导致计算开销过大。\n" +
+                f"建议将节点数(n_quadrature)设置为30或更小。当前n_quadrature为{n_quadrature}。\n"
             )
         elif n_quadrature < 10:
             print(
-                "警告: 采用高斯-厄米特求积法时，节点数过小可能导致估计不准确。\n" +
-                "建议将节点数(n_quadrature)设置为10或更大。当前n_quadrature为{n_quadrature}。\n")
+                f"警告: 采用高斯-厄米特求积法时，节点数过小可能导致估计不准确。\n" +
+                f"建议将节点数(n_quadrature)设置为10或更大。当前n_quadrature为{n_quadrature}。\n")
         elif n_quadrature < 1:
             raise ValueError(
                 f"n_quadrature必须大于等于1，当前n_quadrature为{n_quadrature}。\n"
@@ -120,7 +132,7 @@ def mirt(
             raise ValueError(
                 f"n_quadrature必须小于等于50，当前n_quadrature为{n_quadrature}。\n"
             )
-    elif dim==1 and method=='mcem':
+    elif dim==1 and method in ['mcem', 'saem', 'mcmc']:
         raise ValueError(
             f"单维IRT模型仅支持采用em方法进行估计。\n"
         )
@@ -129,28 +141,24 @@ def mirt(
     if method == 'em':
         quad_points_nd, quad_weights_nd = create_mirt_quadrature(n_quadrature, dim)
         if model == 'm2pl':
-            a_est, d_est = mirt_em_gh(
+            a_est, d_est = mirt_em(
                 response_matrix, mask_matrix, Q, 
-                n_quadrature=n_quadrature,max_iter=max_iter, tol=tol, verbose=verbose
+                n_quadrature=n_quadrature, max_iter=max_iter, tol=tol, verbose=verbose
             )
             theta_est = eap_m2pl(
-                response_matrix, mask_matrix, a_est, d_est,quad_points_nd, quad_weights_nd
+                response_matrix, mask_matrix, a_est, d_est, quad_points_nd, quad_weights_nd
                 )
-        elif model == 'mgrm_step':
-            a_est, d_est = mgrm_em_gh_stepwise(
-                response_matrix, mask_matrix, Q, n_categories,
-                n_quadrature=n_quadrature, max_iter=max_iter, tol=tol, verbose=verbose
-            )
-            d_params_padded, d_mask = pad_grm_parameters(d_est, n_categories, padding_value=0.0)
-            theta_est = eap_mgrm(
-                response_matrix, mask_matrix, a_est, d_params_padded, d_mask,
-                n_categories, quad_points_nd, quad_weights_nd
-            )
-        elif model == 'mgrm_stand':
-            a_est, d_est = mgrm_em_gh_standard(
-                response_matrix, mask_matrix, Q, n_categories,
-                n_quadrature=n_quadrature, max_iter=max_iter, tol=tol, verbose=verbose
-            )
+        elif model == 'mgrm':
+            if grm_type == 'step':
+                a_est, d_est = mgrm_em_stepwise(
+                    response_matrix, mask_matrix, Q, n_categories,
+                    n_quadrature=n_quadrature, max_iter=max_iter, tol=tol, verbose=verbose
+                )
+            elif grm_type == 'stand':
+                a_est, d_est = mgrm_em_standard(
+                    response_matrix, mask_matrix, Q, n_categories,
+                    n_quadrature=n_quadrature, max_iter=max_iter, tol=tol, verbose=verbose
+                )
             d_params_padded, d_mask = pad_grm_parameters(d_est, n_categories, padding_value=0.0)
             theta_est = eap_mgrm(
                 response_matrix, mask_matrix, a_est, d_params_padded, d_mask,
@@ -158,23 +166,58 @@ def mirt(
             )
     elif method == 'mcem':
         if model == 'm2pl':
-            a_est, d_est, theta_est = mirt_em_mc(
+            a_est, d_est, theta_est = mirt_mcem(
                 response_matrix, mask_matrix, Q,
                 n_samples=n_samples, burn_in=burn_in, sample_interval=sample_interval,
                 max_iter=max_iter, tol=tol, verbose=verbose
             )
-        elif model == 'mgrm_step':
-            a_est, d_est, theta_est = mgrm_em_mc_stepwise(
-                response_matrix, mask_matrix, Q, n_categories,
-                n_samples=n_samples, burn_in=burn_in, sample_interval=sample_interval,
+        elif model == 'mgrm':
+            if grm_type == 'step':
+                a_est, d_est, theta_est = mgrm_mcem_stepwise(
+                    response_matrix, mask_matrix, Q, n_categories,
+                    n_samples=n_samples, burn_in=burn_in, sample_interval=sample_interval,
+                    max_iter=max_iter, tol=tol, verbose=verbose
+                )
+            elif grm_type == 'stand':
+                a_est, d_est, theta_est = mgrm_mcem_standard(
+                    response_matrix, mask_matrix, Q, n_categories,
+                    n_samples=n_samples, burn_in=burn_in, sample_interval=sample_interval,
+                    max_iter=max_iter, tol=tol, verbose=verbose
+                )
+    elif method == 'saem':
+        if model == 'm2pl':
+            a_est, d_est, theta_est = mirt_saem(
+                response_matrix, mask_matrix, Q,
                 max_iter=max_iter, tol=tol, verbose=verbose
             )
-        elif model == 'mgrm_stand':
-            a_est, d_est, theta_est = mgrm_em_mc_standard(
-                response_matrix, mask_matrix, Q, n_categories,
-                n_samples=n_samples, burn_in=burn_in, sample_interval=sample_interval,
-                max_iter=max_iter, tol=tol, verbose=verbose
+        elif model == 'mgrm':
+            if grm_type == 'step':
+                a_est, d_est, theta_est = mgrm_saem_stepwise(
+                    response_matrix, mask_matrix, Q, n_categories,
+                    max_iter=max_iter, tol=tol, verbose=verbose
+                )
+            elif grm_type == 'stand':
+                a_est, d_est, theta_est = mgrm_saem_standard(
+                    response_matrix, mask_matrix, Q, n_categories,
+                    max_iter=max_iter, tol=tol, verbose=verbose
+                )
+    elif method == 'mcmc':
+        if model == 'm2pl':
+            a_est, d_est, theta_est = mirt_mcmc(
+                response_matrix, mask_matrix, Q,
+                n_samples=n_samples, burn_in=burn_in, verbose=verbose
             )
+        elif model == 'mgrm':
+            if grm_type == 'step':
+                a_est, d_est, theta_est = mgrm_mcmc_stepwise(
+                    response_matrix, mask_matrix, Q, n_categories,
+                    n_samples=n_samples, burn_in=burn_in,  verbose=verbose
+                )
+            elif grm_type == 'stand':
+                a_est, d_est, theta_est = mgrm_mcmc_standard(
+                    response_matrix, mask_matrix, Q, n_categories,
+                    n_samples=n_samples, burn_in=burn_in, verbose=verbose
+                )
     return a_est, d_est, theta_est
 
 
