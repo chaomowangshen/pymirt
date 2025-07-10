@@ -26,7 +26,7 @@ def example_irt_2pl():
     n_items = 30
     
     # 真实参数和作答数据
-    response_matrix, mask_matrix, a_true, b_true, theta_true=generate_2pl_data(n_subjects, n_items, missing_rate=0.2,seed=seed)
+    response_matrix, mask_matrix, a_true, b_true, theta_true=generate_2pl_data(n_subjects, n_items, missing_rate=0.0,seed=seed)
     response_df = pd.DataFrame(response_matrix, 
                               columns=[f'Item_{i+1}' for i in range(n_items)])
     print(f"数据维度: {response_df.shape}")
@@ -77,7 +77,7 @@ def example_grm_step():
     n_items = 30
     
     # 真实参数和作答数据
-    response_matrix, mask_matrix, a_true, b_true, theta_true, n_categories=generate_grm_data(n_subjects, n_items, max_k=5,seed=seed)
+    response_matrix, mask_matrix, a_true, b_true, theta_true, n_categories=generate_grm_data(n_subjects, n_items, max_k=5,seed=seed,missing_rate=0.0)
     
     response_df = pd.DataFrame(response_matrix,
                               columns=[f'Item_{i+1}' for i in range(n_items)])
@@ -132,7 +132,7 @@ def example_grm_stand():
     n_items = 30
     
     # 真实参数和作答数据
-    response_matrix, mask_matrix, a_true, b_true, theta_true, n_categories=generate_grm_data(n_subjects, n_items, max_k=5,seed=seed)
+    response_matrix, mask_matrix, a_true, b_true, theta_true, n_categories=generate_grm_data(n_subjects, n_items, max_k=5,seed=seed,missing_rate=0.0)
     
     response_df = pd.DataFrame(response_matrix,
                               columns=[f'Item_{i+1}' for i in range(n_items)])
@@ -189,7 +189,7 @@ def example_m2pl_em():
     n_subjects = 1000
     n_items = 30
     n_dimensions = 2
-    response_matrix, mask_matrix, Q, a_true, d_true,theta_true=generate_m2pl_data(n_subjects, n_items, n_dimensions, missing_rate=0.2,seed=seed)
+    response_matrix, mask_matrix, Q, a_true, d_true,theta_true=generate_m2pl_data(n_subjects, n_items, n_dimensions, missing_rate=0.0,seed=seed)
     response_df = pd.DataFrame(response_matrix,
                               columns=[f'Item_{i+1}' for i in range(n_items)])
     
@@ -246,7 +246,7 @@ def example_m2pl_mcem():
     n_subjects = 1000
     n_items = 30
     n_dimensions = 2
-    response_matrix, mask_matrix, Q, a_true, d_true,theta_true=generate_m2pl_data(n_subjects, n_items, n_dimensions, missing_rate=0.2,seed=seed)
+    response_matrix, mask_matrix, Q, a_true, d_true,theta_true=generate_m2pl_data(n_subjects, n_items, n_dimensions, missing_rate=0.0,seed=seed)
     response_df = pd.DataFrame(response_matrix,
                               columns=[f'Item_{i+1}' for i in range(n_items)])
     
@@ -305,7 +305,7 @@ def example_m2pl_saem():
     n_subjects = 1000
     n_items = 30
     n_dimensions = 2
-    response_matrix, mask_matrix, Q, a_true, d_true,theta_true=generate_m2pl_data(n_subjects, n_items, n_dimensions, missing_rate=0.2,seed=seed)
+    response_matrix, mask_matrix, Q, a_true, d_true,theta_true=generate_m2pl_data(n_subjects, n_items, n_dimensions, missing_rate=0.0,seed=seed)
     response_df = pd.DataFrame(response_matrix,
                               columns=[f'Item_{i+1}' for i in range(n_items)])
     
@@ -362,7 +362,7 @@ def example_m2pl_mcmc():
     n_subjects = 1000
     n_items = 30
     n_dimensions = 2
-    response_matrix, mask_matrix, Q, a_true, d_true,theta_true=generate_m2pl_data(n_subjects, n_items, n_dimensions, missing_rate=0.2,seed=seed)
+    response_matrix, mask_matrix, Q, a_true, d_true,theta_true=generate_m2pl_data(n_subjects, n_items, n_dimensions, missing_rate=0.0,seed=seed)
     response_df = pd.DataFrame(response_matrix,
                               columns=[f'Item_{i+1}' for i in range(n_items)])
     
@@ -420,7 +420,7 @@ def example_mgrm_step_em():
     n_subjects = 1000
     n_items = 30
     n_dimensions = 2
-    response_matrix, mask_matrix, Q, a_true, d_true,theta_true,n_categories=generate_mgrm_data(n_subjects, n_items, n_dimensions, missing_rate=0.2)
+    response_matrix, mask_matrix, Q, a_true, d_true,theta_true,n_categories=generate_mgrm_data(n_subjects, n_items, n_dimensions, missing_rate=0.0)
     response_df = pd.DataFrame(response_matrix,columns=[f'Item_{i+1}' for i in range(n_items)])
     print(f"数据维度: {response_df.shape}")
     print(f"Q 矩阵形状: {Q.shape}")
@@ -477,7 +477,7 @@ def example_mgrm_step_mcem():
     n_subjects = 1000
     n_items = 30
     n_dimensions = 2
-    response_matrix, mask_matrix, Q, a_true, d_true,theta_true,n_categories=generate_mgrm_data(n_subjects, n_items, n_dimensions, missing_rate=0.2)
+    response_matrix, mask_matrix, Q, a_true, d_true,theta_true,n_categories=generate_mgrm_data(n_subjects, n_items, n_dimensions, missing_rate=0.0)
     response_df = pd.DataFrame(response_matrix,columns=[f'Item_{i+1}' for i in range(n_items)])
     print(f"数据维度: {response_df.shape}")
     print(f"Q 矩阵形状: {Q.shape}")
@@ -534,7 +534,7 @@ def example_mgrm_step_saem():
     n_subjects = 1000
     n_items = 30
     n_dimensions = 2
-    response_matrix, mask_matrix, Q, a_true, d_true,theta_true,n_categories=generate_mgrm_data(n_subjects, n_items, n_dimensions, missing_rate=0.2)
+    response_matrix, mask_matrix, Q, a_true, d_true,theta_true,n_categories=generate_mgrm_data(n_subjects, n_items, n_dimensions, missing_rate=0.0)
     response_df = pd.DataFrame(response_matrix,columns=[f'Item_{i+1}' for i in range(n_items)])
     print(f"数据维度: {response_df.shape}")
     print(f"Q 矩阵形状: {Q.shape}")
@@ -590,7 +590,7 @@ def example_mgrm_step_mcmc():
     n_subjects = 1000
     n_items = 30
     n_dimensions = 2
-    response_matrix, mask_matrix, Q, a_true, d_true,theta_true,n_categories=generate_mgrm_data(n_subjects, n_items, n_dimensions, missing_rate=0.2)
+    response_matrix, mask_matrix, Q, a_true, d_true,theta_true,n_categories=generate_mgrm_data(n_subjects, n_items, n_dimensions, missing_rate=0.0)
     response_df = pd.DataFrame(response_matrix,columns=[f'Item_{i+1}' for i in range(n_items)])
     print(f"数据维度: {response_df.shape}")
     print(f"Q 矩阵形状: {Q.shape}")
@@ -647,7 +647,7 @@ def example_mgrm_stand_em():
     n_subjects = 1000
     n_items = 30
     n_dimensions = 2
-    response_matrix, mask_matrix, Q, a_true, d_true,theta_true,n_categories=generate_mgrm_data(n_subjects, n_items, n_dimensions, missing_rate=0.2)
+    response_matrix, mask_matrix, Q, a_true, d_true,theta_true,n_categories=generate_mgrm_data(n_subjects, n_items, n_dimensions, missing_rate=0.0)
     response_df = pd.DataFrame(response_matrix,columns=[f'Item_{i+1}' for i in range(n_items)])
     print(f"数据维度: {response_df.shape}")
     print(f"Q 矩阵形状: {Q.shape}")
@@ -704,7 +704,7 @@ def example_mgrm_stand_mcem():
     n_subjects = 1000
     n_items = 30
     n_dimensions = 2
-    response_matrix, mask_matrix, Q, a_true, d_true,theta_true,n_categories=generate_mgrm_data(n_subjects, n_items, n_dimensions, missing_rate=0.2)
+    response_matrix, mask_matrix, Q, a_true, d_true,theta_true,n_categories=generate_mgrm_data(n_subjects, n_items, n_dimensions, missing_rate=0.0)
     response_df = pd.DataFrame(response_matrix,columns=[f'Item_{i+1}' for i in range(n_items)])
     print(f"数据维度: {response_df.shape}")
     print(f"Q 矩阵形状: {Q.shape}")
@@ -762,7 +762,7 @@ def example_mgrm_stand_saem():
     n_subjects = 1000
     n_items = 30
     n_dimensions = 2
-    response_matrix, mask_matrix, Q, a_true, d_true,theta_true,n_categories=generate_mgrm_data(n_subjects, n_items, n_dimensions, missing_rate=0.2)
+    response_matrix, mask_matrix, Q, a_true, d_true,theta_true,n_categories=generate_mgrm_data(n_subjects, n_items, n_dimensions, missing_rate=0.0)
     response_df = pd.DataFrame(response_matrix,columns=[f'Item_{i+1}' for i in range(n_items)])
     print(f"数据维度: {response_df.shape}")
     print(f"Q 矩阵形状: {Q.shape}")
@@ -817,7 +817,7 @@ def example_mgrm_stand_mcmc():
     n_subjects = 1000
     n_items = 30
     n_dimensions = 2
-    response_matrix, mask_matrix, Q, a_true, d_true,theta_true,n_categories=generate_mgrm_data(n_subjects, n_items, n_dimensions, missing_rate=0.2)
+    response_matrix, mask_matrix, Q, a_true, d_true,theta_true,n_categories=generate_mgrm_data(n_subjects, n_items, n_dimensions, missing_rate=0.0)
     response_df = pd.DataFrame(response_matrix,columns=[f'Item_{i+1}' for i in range(n_items)])
     print(f"数据维度: {response_df.shape}")
     print(f"Q 矩阵形状: {Q.shape}")
