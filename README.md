@@ -8,9 +8,11 @@ English | [中文](README_zh.md)
 
 - **Unidimensional IRT Models**: Supports 2PL model and Graded Response Model (GRM)
 - **Multidimensional IRT Models**: Supports Multidimensional 2PL (M2PL) and Multidimensional Graded Response Model (MGRM)
-- **Multiple Estimation Methods**: Supports EM algorithm and Monte Carlo EM (mcem) methods
+- **Multiple Estimation Methods**: Supports EM, Monte Carlo EM (MCEM), SAEM, and MCMC methods
 - **Ability Estimation**: Supports Expected A Posteriori (EAP) and Markov Chain Monte Carlo estimation
 - **Missing Data Handling**: Supports parameter estimation with response matrices containing missing data
+- **Sparse Backend**: Optional sparse computation for high-missing response data via `use_sparse=True`
+- **Object API**: Provides `IRT` and `MIRT` estimator classes with result summaries and parameter tables
 - **Flexible Configuration**: Supports custom quadrature points, iterations, convergence tolerance and other parameters
 
 ## Installation
@@ -83,6 +85,46 @@ print(f"Difficulty parameters: {b_est}")
 print(f"Ability estimates: {theta_est}")
 ```
 
+### Object API
+
+The function API remains the quickest way to get `(a, b/d, theta)`. For a more organized workflow, use the estimator classes:
+
+```python
+import numpy as np
+import pandas as pd
+from pymirt import IRT, MIRT
+
+response_df = pd.read_csv('your_response_data.csv')
+
+# Unidimensional IRT
+irt_result = IRT(
+    model='2pl',
+    method='em',
+    use_sparse=True
+).fit(response_df)
+
+print(irt_result.summary())
+print(irt_result.item_params().head())
+print(irt_result.person_params().head())
+
+# Multidimensional IRT
+Q = np.array([[1, 0], [1, 0], [0, 1], [0, 1]])
+mirt_result = MIRT(
+    Q=Q,
+    model='m2pl',
+    method='mcmc',
+    use_sparse=True,
+    n_samples=300,
+    burn_in=200
+).fit(response_df)
+
+print(mirt_result.summary())
+print(mirt_result.item_params().head())
+print(mirt_result.person_params().head())
+```
+
+Result objects provide `as_tuple()` for the original return style, plus `item_params()`, `person_params()`, and `summary()`.
+
 ## Supported Models
 
 ### Unidimensional Models
@@ -99,25 +141,42 @@ print(f"Ability estimates: {theta_est}")
 
 ### irt() function parameters
 - `response_df`: Response matrix (DataFrame)
-- `model`: IRT model type ('2PL', 'GRM_stand', 'GRM_step'). GRM_stand is the standard GRM implementation, GRM_step estimates difficulty parameters step by step.
+- `model`: IRT model type ('2pl' or 'grm')
+- `grm_type`: GRM variant ('step' or 'stand')
+- `method`: Estimation method ('em', 'mcem', 'saem', or 'mcmc')
 - `n_quadrature`: Number of Gauss-Hermite quadrature points
 - `n_categories`: Number of categories for each item (for GRM models)
-- `max_iter`: Maximum number of iterations
-- `tol`: Convergence tolerance
-- `verbose`: Whether to print detailed information
-
-### mirt() function parameters
-- `response_df`: Response matrix (DataFrame)
-- `Q`: Item loading matrix (numpy array)
-- `method`: Estimation method ('em' or 'mcem'). Note: 'em' method only supports up to 3 dimensions.
-- `model`: Multidimensional IRT model type ('m2pl', 'mgrm_step', or 'mgrm_stand'). mgrm_stand is the standard mgrm implementation, grm_step estimates threshold parameters step by step.
-- `n_quadrature`: Number of quadrature points (for EM method)
-- `n_samples`: Number of MCMC samples (for MCEM method)
-- `burn_in`: MCMC burn-in period (for MCEM method)
+- `n_samples`: Number of MCMC samples (for MCMC/MCEM methods)
+- `burn_in`: MCMC burn-in period (for MCMC/MCEM methods)
 - `sample_interval`: MCMC sample interval (for MCEM method)
 - `max_iter`: Maximum number of iterations
 - `tol`: Convergence tolerance
 - `verbose`: Whether to print detailed information
+- `use_sparse`: Whether to use the sparse response backend
+
+### mirt() function parameters
+- `response_df`: Response matrix (DataFrame)
+- `Q`: Item loading matrix (numpy array)
+- `method`: Estimation method ('em', 'mcem', 'saem', or 'mcmc'). Note: 'em' method only supports up to 3 dimensions.
+- `model`: Multidimensional IRT model type ('m2pl' or 'mgrm')
+- `grm_type`: MGRM variant ('step' or 'stand')
+- `n_quadrature`: Number of quadrature points (for EM method)
+- `n_samples`: Number of MCMC samples (for MCMC/MCEM methods)
+- `burn_in`: MCMC burn-in period (for MCMC/MCEM methods)
+- `sample_interval`: MCMC sample interval (for MCEM method)
+- `max_iter`: Maximum number of iterations
+- `tol`: Convergence tolerance
+- `verbose`: Whether to print detailed information
+- `use_sparse`: Whether to use the sparse response backend
+
+### Object API
+- `IRT(...)`: Unidimensional estimator class. Constructor arguments mirror `irt()`.
+- `MIRT(Q=Q, ...)`: Multidimensional estimator class. Constructor arguments mirror `mirt()`.
+- `fit(response_df)`: Estimates the model and returns an `IRTResult` or `MIRTResult`.
+- `result.as_tuple()`: Returns the original tuple style.
+- `result.item_params()`: Returns item parameters as a `DataFrame`.
+- `result.person_params()`: Returns ability estimates as a `DataFrame`.
+- `result.summary()`: Returns a lightweight summary dictionary.
 
 ## Contributing
 
@@ -153,7 +212,9 @@ Thanks to all researchers who have contributed to the development of Item Respon
 
 - v0.1.1 - Current version
   - Support for unidimensional and multidimensional IRT models
-  - EM and MCEM estimation methods
+  - EM, MCEM, SAEM, and MCMC estimation methods
+  - Optional sparse backend for high-missing response data
+  - Object API with IRT/MIRT estimator classes and result objects
   - Initial release
 ## License
 

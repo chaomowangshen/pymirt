@@ -8,9 +8,11 @@ PyMIRT 是一个用于项目反应理论（Item Response Theory, IRT）参数估
 
 - **单维 IRT 模型**：支持 2PL 模型和等级反应模型（GRM）
 - **多维 IRT 模型**：支持多维 2PL 模型（M2PL）和多维等级反应模型（MGRM）
-- **多种估计方法**：支持 EM 算法和蒙特卡洛 EM（MCEM）方法
+- **多种估计方法**：支持 EM、蒙特卡洛 EM（MCEM）、SAEM 和 MCMC 方法
 - **能力估计**：支持期望后验估计（EAP）和马尔可夫链蒙特卡洛估计
 - **缺失数据处理**：支持含有缺失数据的作答矩阵进行参数估计
+- **稀疏计算后端**：通过 `use_sparse=True` 支持高缺失作答数据的稀疏计算
+- **对象式 API**：提供 `IRT` 和 `MIRT` 估计器类，支持结果摘要和参数表导出
 - **灵活配置**：支持自定义求积点数、迭代次数、收敛容忍度等参数
 
 ## 安装
@@ -83,6 +85,46 @@ print(f"难度参数: {b_est}")
 print(f"能力估计: {theta_est}")
 ```
 
+### 对象式 API
+
+函数 API 仍然适合快速获得 `(a, b/d, theta)` 三元组。如果希望结果更方便查看和整理，可以使用对象式 API：
+
+```python
+import numpy as np
+import pandas as pd
+from pymirt import IRT, MIRT
+
+response_df = pd.read_csv('your_response_data.csv')
+
+# 单维 IRT
+irt_result = IRT(
+    model='2pl',
+    method='em',
+    use_sparse=True
+).fit(response_df)
+
+print(irt_result.summary())
+print(irt_result.item_params().head())
+print(irt_result.person_params().head())
+
+# 多维 IRT
+Q = np.array([[1, 0], [1, 0], [0, 1], [0, 1]])
+mirt_result = MIRT(
+    Q=Q,
+    model='m2pl',
+    method='mcmc',
+    use_sparse=True,
+    n_samples=300,
+    burn_in=200
+).fit(response_df)
+
+print(mirt_result.summary())
+print(mirt_result.item_params().head())
+print(mirt_result.person_params().head())
+```
+
+结果对象提供 `as_tuple()` 保留原来的三元组风格，同时提供 `item_params()`、`person_params()` 和 `summary()`。
+
 ## 支持的模型
 
 ### 单维模型
@@ -99,25 +141,42 @@ print(f"能力估计: {theta_est}")
 
 ### irt() 函数参数
 - `response_df`: 被试作答矩阵（DataFrame）
-- `model`: IRT 模型类型（'2pl', 'grm_stand', 'grm_step'）。grm_stand为标准grm实现，grm_step为分步估计难度参数。
+- `model`: IRT 模型类型（'2pl' 或 'grm'）
+- `grm_type`: GRM 类型（'step' 或 'stand'）
+- `method`: 估计方法（'em', 'mcem', 'saem', 'mcmc'）
 - `n_quadrature`: 高斯-厄米特求积点数
 - `n_categories`: 项目类别数（用于等级反应模型）
-- `max_iter`: 最大迭代次数
-- `tol`: 收敛容忍度
-- `verbose`: 是否打印详细信息
-
-### mirt() 函数参数
-- `response_df`: 被试作答矩阵（DataFrame）
-- `Q`: 项目特征矩阵（numpy array）
-- `method`: 估计方法（'em' 或 'mcem'）。注:em方法仅支持3维及以下
-- `model`: 多维 IRT 模型类型（'m2pl' 或 'mgrm_step'或'mgrm_stand'）。mgrm_stand为标准mgrm实现，mgrm_step为分步估计阈值参数。
-- `n_quadrature`: 求积点数（用于 EM 方法）
-- `n_samples`: MCMC 样本数（用于 MCEM 方法）
-- `burn_in`: MCMC 预热期（用于 MCEM 方法）
+- `n_samples`: MCMC 样本数（用于 MCMC/MCEM 方法）
+- `burn_in`: MCMC 预热期（用于 MCMC/MCEM 方法）
 - `sample_interval`: MCMC 采样间隔（用于 MCEM 方法）
 - `max_iter`: 最大迭代次数
 - `tol`: 收敛容忍度
 - `verbose`: 是否打印详细信息
+- `use_sparse`: 是否使用稀疏作答后端
+
+### mirt() 函数参数
+- `response_df`: 被试作答矩阵（DataFrame）
+- `Q`: 项目特征矩阵（numpy array）
+- `method`: 估计方法（'em', 'mcem', 'saem', 'mcmc'）。注: em 方法仅支持 3 维及以下
+- `model`: 多维 IRT 模型类型（'m2pl' 或 'mgrm'）
+- `grm_type`: MGRM 类型（'step' 或 'stand'）
+- `n_quadrature`: 求积点数（用于 EM 方法）
+- `n_samples`: MCMC 样本数（用于 MCMC/MCEM 方法）
+- `burn_in`: MCMC 预热期（用于 MCMC/MCEM 方法）
+- `sample_interval`: MCMC 采样间隔（用于 MCEM 方法）
+- `max_iter`: 最大迭代次数
+- `tol`: 收敛容忍度
+- `verbose`: 是否打印详细信息
+- `use_sparse`: 是否使用稀疏作答后端
+
+### 对象式 API
+- `IRT(...)`: 单维估计器类，初始化参数与 `irt()` 保持同名同义。
+- `MIRT(Q=Q, ...)`: 多维估计器类，初始化参数与 `mirt()` 保持同名同义。
+- `fit(response_df)`: 估计模型并返回 `IRTResult` 或 `MIRTResult`。
+- `result.as_tuple()`: 返回原来的三元组风格。
+- `result.item_params()`: 以 `DataFrame` 返回项目参数。
+- `result.person_params()`: 以 `DataFrame` 返回被试能力估计。
+- `result.summary()`: 返回轻量摘要字典。
 
 ## 理论背景
 
@@ -224,7 +283,9 @@ isort src/
 
 - **v0.1.1** (2025-07-02) - 当前版本
   - 支持单维和多维 IRT 模型
-  - 支持 EM 和 MCEM 估计方法
+  - 支持 EM、MCEM、SAEM 和 MCMC 估计方法
+  - 支持高缺失作答数据的稀疏计算后端
+  - 新增 IRT/MIRT 对象式 API 和结果对象
   - 完整的包结构和文档
   - 初始发布版本
 

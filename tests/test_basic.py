@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 import pandas as pd
-from pymirt import irt, mirt
+from pymirt import IRT, MIRT, IRTResult, MIRTResult, irt, mirt
 from pymirt.units import (
     create_irt_quadrature,
     create_mirt_quadrature,
@@ -444,6 +444,146 @@ def test_irt_grm_sampling_methods():
             _assert_finite(a_est)
             _assert_finite(b_est)
             _assert_finite(theta_est)
+
+
+def test_irt_object_api_2pl():
+    """IRT object API should wrap the existing 2PL tuple API"""
+    np.random.seed(15)
+    n_subjects = 16
+    n_items = 4
+    response_data = np.random.randint(0, 2, size=(n_subjects, n_items)).astype(float)
+    response_data[np.random.rand(n_subjects, n_items) < 0.15] = np.nan
+    response_df = pd.DataFrame(response_data)
+
+    result = IRT(
+        model='2pl',
+        n_quadrature=3,
+        max_iter=1,
+        tol=1e-2,
+        use_sparse=True,
+    ).fit(response_df)
+
+    assert isinstance(result, IRTResult)
+    a_est, b_est, theta_est = result.as_tuple()
+    assert a_est.shape == (n_items,)
+    assert b_est.shape == (n_items,)
+    assert theta_est.shape == (n_subjects,)
+
+    item_params = result.item_params()
+    person_params = result.person_params()
+    assert list(item_params.columns) == ['item', 'a', 'b']
+    assert list(person_params.columns) == ['user', 'theta']
+    assert len(item_params) == n_items
+    assert len(person_params) == n_subjects
+
+    summary = result.summary()
+    assert summary['model'] == '2pl'
+    assert summary['method'] == 'em'
+    assert summary['n_users'] == n_subjects
+    assert summary['n_items'] == n_items
+    assert summary['use_sparse'] is True
+    assert summary['n_parameters'] == n_items * 2 + n_subjects
+
+
+def test_irt_object_api_grm_threshold_table():
+    """IRT GRM result should expose thresholds as a long item table"""
+    np.random.seed(16)
+    n_subjects = 12
+    n_items = 3
+    n_categories = np.array([3, 4, 3])
+    response_data = np.column_stack([
+        np.random.randint(0, n_categories[j], size=n_subjects)
+        for j in range(n_items)
+    ]).astype(float)
+    response_data[np.random.rand(n_subjects, n_items) < 0.15] = np.nan
+    response_df = pd.DataFrame(response_data)
+
+    result = IRT(
+        model='grm',
+        grm_type='step',
+        n_categories=n_categories,
+        n_quadrature=3,
+        max_iter=1,
+        tol=1e-2,
+        use_sparse=True,
+    ).fit(response_df)
+
+    item_params = result.item_params()
+    assert list(item_params.columns) == ['item', 'a', 'threshold', 'b']
+    assert len(item_params) == int(np.sum(n_categories - 1))
+    assert result.person_params().shape == (n_subjects, 2)
+
+
+def test_mirt_object_api_m2pl_sampling():
+    """MIRT object API should pass sparse sampling settings through"""
+    np.random.seed(17)
+    n_subjects = 10
+    n_items = 4
+    n_dimensions = 2
+    response_data = np.random.randint(0, 2, size=(n_subjects, n_items)).astype(float)
+    response_data[np.random.rand(n_subjects, n_items) < 0.1] = np.nan
+    response_df = pd.DataFrame(response_data)
+    Q = np.array([[1, 0], [0, 1], [1, 1], [1, 0]])
+
+    result = MIRT(
+        Q=Q,
+        model='m2pl',
+        method='mcmc',
+        n_samples=3,
+        burn_in=2,
+        max_iter=1,
+        tol=1e-2,
+        use_sparse=True,
+    ).fit(response_df)
+
+    assert isinstance(result, MIRTResult)
+    a_est, d_est, theta_est = result.as_tuple()
+    assert a_est.shape == (n_items, n_dimensions)
+    assert d_est.shape == (n_items,)
+    assert theta_est.shape == (n_subjects, n_dimensions)
+
+    item_params = result.item_params()
+    person_params = result.person_params()
+    assert list(item_params.columns) == ['item', 'a_dim1', 'a_dim2', 'd']
+    assert list(person_params.columns) == ['user', 'theta_dim1', 'theta_dim2']
+
+    summary = result.summary()
+    assert summary['model'] == 'm2pl'
+    assert summary['method'] == 'mcmc'
+    assert summary['n_dimensions'] == n_dimensions
+    assert summary['q_shape'] == (n_items, n_dimensions)
+
+
+def test_mirt_object_api_mgrm_threshold_table():
+    """MIRT MGRM result should expose thresholds as a long item table"""
+    np.random.seed(18)
+    n_subjects = 12
+    n_items = 4
+    n_dimensions = 2
+    n_categories = np.array([3, 3, 4, 3])
+    response_data = np.column_stack([
+        np.random.randint(0, n_categories[j], size=n_subjects)
+        for j in range(n_items)
+    ]).astype(float)
+    response_data[np.random.rand(n_subjects, n_items) < 0.15] = np.nan
+    response_df = pd.DataFrame(response_data)
+    Q = np.array([[1, 0], [0, 1], [1, 1], [1, 0]])
+
+    result = MIRT(
+        Q=Q,
+        model='mgrm',
+        grm_type='step',
+        n_categories=n_categories,
+        n_quadrature=3,
+        max_iter=1,
+        tol=1e-2,
+        use_sparse=True,
+    ).fit(response_df)
+
+    item_params = result.item_params()
+    assert list(item_params.columns) == ['item', 'a_dim1', 'a_dim2', 'threshold', 'd']
+    assert len(item_params) == int(np.sum(n_categories - 1))
+    assert result.person_params().shape == (n_subjects, n_dimensions + 1)
 
 
 def test_sparse_mirt_validation_errors():

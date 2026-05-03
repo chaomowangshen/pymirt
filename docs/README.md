@@ -17,6 +17,8 @@ PyMIRT 是一个用于项目反应理论（Item Response Theory, IRT）参数估
 
 - 支持单维和多维 IRT 模型
 - 多种估计方法（EM 算法、MCMC）
+- 可选稀疏计算后端（`use_sparse=True`）
+- 对象式 API（`IRT` / `MIRT`）
 - 灵活的配置选项
 - 完整的文档和示例
 
@@ -37,6 +39,18 @@ response_df = pd.read_csv('your_data.csv')
 
 # 估计参数
 a_est, b_est, theta_est = irt(response_df, model='2PL')
+```
+
+也可以使用对象式 API 获取摘要和参数表：
+
+```python
+from pymirt import IRT
+
+result = IRT(model='2pl', use_sparse=True).fit(response_df)
+
+print(result.summary())
+print(result.item_params().head())
+print(result.person_params().head())
 ```
 
 更多详细信息请参考具体的文档页面。
