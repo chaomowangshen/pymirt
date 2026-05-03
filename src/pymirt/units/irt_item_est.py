@@ -141,7 +141,7 @@ def estimate_b_only(a_params, response_matrix,mask_matrix, n_quadrature=27, max_
         delta_ll = current_ll - prev_ll
         total_time += (time.time() - time_start)
         if verbose:
-            print(f"对数似然变化: {delta_ll:.6f}, 耗时: {total_time:.2f}秒")
+            print(f"对数似然变化: {delta_ll:.6f}, 耗时: {time.time() - time_start:.2f}秒")
         if iteration > 0 and abs(delta_ll) < tol:
             break
     return b_est,total_time

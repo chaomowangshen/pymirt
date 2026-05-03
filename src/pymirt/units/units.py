@@ -368,7 +368,7 @@ def compute_mgrm_item_log_likelihood(theta, a_j, d_j, response_j, mask_matrix_j,
     
 
 
-def compute_mgrm_log_likelihood(theta, a, d, response, mask_matrix, n_categories, posterior=None):
+def compute_mgrm_log_likelihood(theta, a, d, response, mask_matrix, n_categories, posterior=None,d_mask=None):
     """
     计算多维GRM模型的对数似然
     参数:
@@ -379,14 +379,18 @@ def compute_mgrm_log_likelihood(theta, a, d, response, mask_matrix, n_categories
     mask_matrix: 掩码矩阵，形状(n_subjects, n_items)
     n_categories: 每个项目的类别数(计分等级)的列表，长度为n_items
     posterior: 后验分布，形状(n_subjects, n_quadrature)
+    d_mask: 阈值参数掩码矩阵，形状(n_items, max_thresholds)，True表示有数据，False表示填充
     返回:
     ll: 每个被试的对数似然，形状(n_subjects,)
     """
     n_categories = np.array(n_categories)
     num_persons, num_items = response.shape
     n_theta = theta.shape[0]
-    # 准备b参数
-    d_padded,d_mask = pad_grm_parameters(d,n_categories)
+    if d_mask is None:
+        # 如果没有提供d_mask，则自动生成
+        d_padded, d_mask = pad_grm_parameters(d, n_categories)
+    else:
+        d_padded, d_mask = d, d_mask  # 使用提供的d_mask
     # 计算所有类别的概率
     P_cat = mgrm_prob_categories(theta, a, d_padded, d_mask, n_categories)
     # 转为对数概率
@@ -416,6 +420,44 @@ def compute_mgrm_log_likelihood(theta, a, d, response, mask_matrix, n_categories
         # posterior: (n_persons, n_theta) -> 转置为 (n_theta, n_persons)
         expected_log_lik = np.sum(log_likelihood * posterior.T, axis=0)  # (n_persons,)
         return expected_log_lik
+    
+
+
+
+    
+def compute_mgrm_log_likelihood_item(theta, a, d_padded,d_mask, response, mask_matrix, n_categories):
+    """
+    计算多维GRM模型的对数似然
+    参数:
+    theta: 潜变量向量，形状(n_quadrature,)
+    a: 区分度参数向量，形状(n_items,)
+    d: 阈值参数列表，每个元素是一个形状为(n_categories[j]-1,)的数组
+    response: 被试作答矩阵，形状(n_subjects, n_items)
+    mask_matrix: 掩码矩阵，形状(n_subjects, n_items)
+    n_categories: 每个项目的类别数(计分等级)的列表，长度为n_items
+    posterior: 后验分布，形状(n_subjects, n_quadrature)
+    返回:
+    ll: 每个题目的对数似然，形状(n_items,)
+    """
+    n_categories = np.array(n_categories)
+    num_persons, num_items = response.shape
+    n_theta = theta.shape[0]
+    # 计算所有类别的概率
+    P_cat = mgrm_prob_categories(theta, a, d_padded, d_mask, n_categories)
+    # 转为对数概率
+    log_P_cat = np.log(P_cat)  # (n_theta, n_items, max_cat)
+    # 确保作答类别不越界
+    resp_clipped = np.clip(response, 0, n_categories - 1).astype(int)  # (n_persons, n_items)
+    # 如果没有后验分布，直接计算对数似然和,mcem
+    resp_clipped= resp_clipped.reshape(num_persons, num_items, 1)  # (n_persons, n_items, 1)
+    log_p_observed=np.take_along_axis(log_P_cat, resp_clipped, axis=2).squeeze()  # (n_theta, n_items)
+    # 应用作答掩码
+    log_p_observed=np.where(mask_matrix.astype(bool), log_p_observed, 0.0)  # (n_theta,n_items)
+    log_likelihood = np.sum(log_p_observed, axis=0)  # (n_items,)
+    # 返回对数似然和
+    return log_likelihood
+
+
 
 ################################# 单维2PL模型(2PL)相关函数 #########################
 def compute_2pl_prob(theta, a, b):
@@ -636,6 +678,26 @@ def compute_m2pl_log_likelihood(theta, a, d, response, mask_matrix, posterior=No
         expected_log_lik = np.sum(log_likelihood * posterior.T, axis=0)  # (n_persons,)
         # 返回每个被试的对数似然
         return expected_log_lik
+    
+
+def compute_m2pl_log_likelihood_item(theta, a, d, response, mask_matrix):
+    """
+    计算m2pl模型每个项目(item)的总对数似然。
+    参数:
+    theta: 潜变量向量，形状(n_persons,)
+    a: 区分度参数矩阵，形状(n_items, n_dims)
+    d: 难度参数向量，形状(n_items,)
+    response: 被试作答矩阵，形状(n_persons, n_items)
+    mask_matrix: 掩码矩阵，形状(n_persons, n_items)
+    返回:
+    total_log_likelihood: 每个项目的总对数似然，形状为(n_items,)
+    np.array: 形状为 (J,) 的向量, 每个元素是对应项目的总对数似然。
+    """
+    p = m2pl_prob(theta, a, d)
+    p = np.clip(p, 1e-9, 1 - 1e-9) # 保证数值稳定性
+    ll_matrix = response * np.log(p) + (1 - response) * np.log(1 - p)
+    total_log_likelihood = np.sum(ll_matrix * mask_matrix, axis=0)  # 沿着学生轴(axis=0)求和，得到每个项目的总对数似然
+    return total_log_likelihood
 
 
 

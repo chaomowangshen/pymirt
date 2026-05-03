@@ -5,3 +5,4 @@ from .irt_item_est import *
 from .mirt_item_est import *
 from .irt_simulate_data import *
 from .units import *
+from .mirt_item_mcmc import *
