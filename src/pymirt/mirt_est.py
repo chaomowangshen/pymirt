@@ -4,7 +4,13 @@ from .units import (
     mirt_mcem,mgrm_mcem_stepwise,mgrm_mcem_standard,
     mirt_mcmc,mgrm_mcmc_stepwise,mgrm_mcmc_standard,
     mirt_saem,mgrm_saem_stepwise,mgrm_saem_standard,
-    eap_m2pl,eap_mgrm,mc_m2pl,mc_mgrm
+    eap_m2pl,eap_mgrm,mc_m2pl,mc_mgrm,
+    dataframe_to_sparse_response, analyze_sparse_response,
+    mirt_em_sparse, mgrm_em_stepwise_sparse, mgrm_em_standard_sparse,
+    eap_m2pl_sparse, eap_mgrm_sparse,
+    mirt_mcem_sparse, mgrm_mcem_stepwise_sparse, mgrm_mcem_standard_sparse,
+    mirt_mcmc_sparse, mgrm_mcmc_stepwise_sparse, mgrm_mcmc_standard_sparse,
+    mirt_saem_sparse, mgrm_saem_stepwise_sparse, mgrm_saem_standard_sparse,
     )
 import numpy as np
 import pandas as pd
@@ -24,7 +30,8 @@ def mirt(
         sample_interval: int = 10,
         max_iter: int = 100,
         tol: float = 1e-4,
-        verbose: bool = False
+        verbose: bool = False,
+        use_sparse: bool = False
         ):
     '''
     根据反应矩阵，使用IRT模型估计被试的能力值和项目参数。
@@ -91,6 +98,156 @@ def mirt(
         raise ValueError(
             f"Q矩阵的行数({Q.shape[0]})与响应矩阵的列数({response_df.shape[1]})不一致，请检查数据。"
         )
+    if use_sparse:
+        if model == 'mgrm' and n_categories is None:
+            raise ValueError("n_categories is required when model='mgrm'.")
+        if method == 'em' and dim > 3:
+            raise ValueError("Sparse EM uses quadrature and only supports up to 3 dimensions.")
+        if method == 'em' and n_quadrature < 1:
+            raise ValueError("n_quadrature must be greater than 0.")
+
+        sparse_response = dataframe_to_sparse_response(response_df)
+        analyze_sparse_response(
+            sparse_response,
+            n_categories=n_categories if model == 'mgrm' else None,
+            binary=(model == 'm2pl'),
+        )
+
+        if method == 'em':
+            quad_points_nd, quad_weights_nd = create_mirt_quadrature(n_quadrature, dim)
+
+        if model == 'm2pl' and method == 'em':
+            a_est, d_est = mirt_em_sparse(
+                sparse_response,
+                Q,
+                n_quadrature=n_quadrature,
+                max_iter=max_iter,
+                tol=tol,
+                verbose=verbose,
+            )
+            theta_est = eap_m2pl_sparse(
+                sparse_response, a_est, d_est, quad_points_nd, quad_weights_nd
+            )
+        elif model == 'm2pl' and method == 'mcem':
+            a_est, d_est, theta_est = mirt_mcem_sparse(
+                sparse_response,
+                Q,
+                n_samples=n_samples,
+                burn_in=burn_in,
+                sample_interval=sample_interval,
+                max_iter=max_iter,
+                tol=tol,
+                verbose=verbose,
+            )
+        elif model == 'm2pl' and method == 'saem':
+            a_est, d_est, theta_est = mirt_saem_sparse(
+                sparse_response,
+                Q,
+                max_iter=max_iter,
+                tol=tol,
+                verbose=verbose,
+            )
+        elif model == 'm2pl' and method == 'mcmc':
+            a_est, d_est, theta_est = mirt_mcmc_sparse(
+                sparse_response,
+                Q,
+                n_samples=n_samples,
+                burn_in=burn_in,
+                verbose=verbose,
+            )
+        elif model == 'mgrm' and method == 'em':
+            if grm_type == 'step':
+                a_est, d_est = mgrm_em_stepwise_sparse(
+                    sparse_response,
+                    Q,
+                    n_categories,
+                    n_quadrature=n_quadrature,
+                    max_iter=max_iter,
+                    tol=tol,
+                    verbose=verbose,
+                )
+            elif grm_type == 'stand':
+                a_est, d_est = mgrm_em_standard_sparse(
+                    sparse_response,
+                    Q,
+                    n_categories,
+                    n_quadrature=n_quadrature,
+                    max_iter=max_iter,
+                    tol=tol,
+                    verbose=verbose,
+                )
+            theta_est = eap_mgrm_sparse(
+                sparse_response,
+                a_est,
+                d_est,
+                n_categories,
+                quad_points_nd,
+                quad_weights_nd,
+            )
+        elif model == 'mgrm' and method == 'mcem':
+            if grm_type == 'step':
+                a_est, d_est, theta_est = mgrm_mcem_stepwise_sparse(
+                    sparse_response,
+                    Q,
+                    n_categories,
+                    n_samples=n_samples,
+                    burn_in=burn_in,
+                    sample_interval=sample_interval,
+                    max_iter=max_iter,
+                    tol=tol,
+                    verbose=verbose,
+                )
+            elif grm_type == 'stand':
+                a_est, d_est, theta_est = mgrm_mcem_standard_sparse(
+                    sparse_response,
+                    Q,
+                    n_categories,
+                    n_samples=n_samples,
+                    burn_in=burn_in,
+                    sample_interval=sample_interval,
+                    max_iter=max_iter,
+                    tol=tol,
+                    verbose=verbose,
+                )
+        elif model == 'mgrm' and method == 'saem':
+            if grm_type == 'step':
+                a_est, d_est, theta_est = mgrm_saem_stepwise_sparse(
+                    sparse_response,
+                    Q,
+                    n_categories,
+                    max_iter=max_iter,
+                    tol=tol,
+                    verbose=verbose,
+                )
+            elif grm_type == 'stand':
+                a_est, d_est, theta_est = mgrm_saem_standard_sparse(
+                    sparse_response,
+                    Q,
+                    n_categories,
+                    max_iter=max_iter,
+                    tol=tol,
+                    verbose=verbose,
+                )
+        elif model == 'mgrm' and method == 'mcmc':
+            if grm_type == 'step':
+                a_est, d_est, theta_est = mgrm_mcmc_stepwise_sparse(
+                    sparse_response,
+                    Q,
+                    n_categories,
+                    n_samples=n_samples,
+                    burn_in=burn_in,
+                    verbose=verbose,
+                )
+            elif grm_type == 'stand':
+                a_est, d_est, theta_est = mgrm_mcmc_standard_sparse(
+                    sparse_response,
+                    Q,
+                    n_categories,
+                    n_samples=n_samples,
+                    burn_in=burn_in,
+                    verbose=verbose,
+                )
+        return a_est, d_est, theta_est
     # 分析数据矩阵
     if n_categories is not None:
         issues_found, missing_flag, issues_list,missing_list, response_matrix, mask_matrix = analyze_data_matrix(response_df, n_categories, verbose=verbose)

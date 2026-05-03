@@ -54,8 +54,13 @@ def irt_em(response_matrix, mask_matrix, n_quadrature=27, max_iter=100, tol=1e-4
                     response_j, mask_j, posterior
                 )
                 return -expected_ll  # 最小化负对数似然
-            # 使用BFGS优化更新参数
-            res = minimize(neg_log_likelihood, [a_est[j], b_est[j]], method='BFGS')
+            # Constrain discrimination to the positive range required by 2PL.
+            res = minimize(
+                neg_log_likelihood,
+                [a_est[j], b_est[j]],
+                method='L-BFGS-B',
+                bounds=[(0.1, None), (None, None)],
+            )
             a_new[j], b_new[j] = res.x
         # 记录每次迭代的时间
         end_time = time.time()

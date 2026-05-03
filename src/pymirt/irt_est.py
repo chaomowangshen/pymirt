@@ -1,4 +1,10 @@
-from .units import (analyze_data_matrix,irt_em,grm_em_stepwise,grm_em_standard,eap_2pl,eap_grm,pad_grm_parameters,create_irt_quadrature)
+from .units import (
+    analyze_data_matrix, irt_em, grm_em_stepwise, grm_em_standard,
+    eap_2pl, eap_grm, pad_grm_parameters, create_irt_quadrature,
+    dataframe_to_sparse_response, analyze_sparse_response,
+    irt_em_sparse, grm_em_stepwise_sparse, grm_em_standard_sparse,
+    eap_2pl_sparse, eap_grm_sparse,
+)
 import numpy as np
 import pandas as pd
 
@@ -11,7 +17,8 @@ def irt(
         n_categories=None,
         max_iter: int = 100,
         tol: float = 1e-4,
-        verbose: bool = False
+        verbose: bool = False,
+        use_sparse: bool = False
         ):
     
     '''
@@ -60,6 +67,55 @@ def irt(
                 raise ValueError("n_categories必须为一维数组或列表，请检查数据。")
         else:
             raise ValueError("n_categories必须为None、列表或一维numpy数组，请检查数据。")
+    if use_sparse:
+        if n_quadrature < 1:
+            raise ValueError("n_quadrature must be greater than 0.")
+        elif n_quadrature > 100:
+            print("Warning: n_quadrature is large and may be slow.")
+
+        sparse_response = dataframe_to_sparse_response(response_df)
+        analyze_sparse_response(
+            sparse_response,
+            n_categories=n_categories if model == 'grm' else None,
+            binary=(model == '2pl'),
+        )
+        quad_points, quad_weights = create_irt_quadrature(n_quadrature)
+
+        if model == '2pl':
+            a_est, b_est = irt_em_sparse(
+                sparse_response,
+                n_quadrature=n_quadrature,
+                max_iter=max_iter,
+                tol=tol,
+                verbose=verbose,
+            )
+            theta_est = eap_2pl_sparse(
+                sparse_response, a_est, b_est, quad_points, quad_weights
+            )
+        elif model == 'grm':
+            if grm_type == 'step':
+                a_est, b_est = grm_em_stepwise_sparse(
+                    sparse_response,
+                    n_categories,
+                    n_quadrature=n_quadrature,
+                    max_iter=max_iter,
+                    tol=tol,
+                    verbose=verbose,
+                )
+            elif grm_type == 'stand':
+                a_est, b_est = grm_em_standard_sparse(
+                    sparse_response,
+                    n_categories,
+                    n_quadrature=n_quadrature,
+                    max_iter=max_iter,
+                    tol=tol,
+                    verbose=verbose,
+                )
+            theta_est = eap_grm_sparse(
+                sparse_response, a_est, b_est, n_categories, quad_points, quad_weights
+            )
+        return a_est, b_est, theta_est
+
     # 分析数据矩阵
     if n_categories is not None:
         issues_found, missing_flag, issues_list,missing_list, response_matrix, mask_matrix = analyze_data_matrix(response_df, n_categories, verbose=verbose)
