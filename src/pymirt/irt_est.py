@@ -4,6 +4,10 @@ from .units import (
     dataframe_to_sparse_response, analyze_sparse_response,
     irt_em_sparse, grm_em_stepwise_sparse, grm_em_standard_sparse,
     eap_2pl_sparse, eap_grm_sparse,
+    irt_mcem_sparse, irt_mcmc_sparse, irt_saem_sparse,
+    grm_mcem_stepwise_sparse, grm_mcem_standard_sparse,
+    grm_mcmc_stepwise_sparse, grm_mcmc_standard_sparse,
+    grm_saem_stepwise_sparse, grm_saem_standard_sparse,
 )
 import numpy as np
 import pandas as pd
@@ -12,9 +16,13 @@ import pandas as pd
 def irt(
         response_df: pd.DataFrame,
         model='2PL',
+        method='em',
         grm_type='step',
         n_quadrature: int = 27,
         n_categories=None,
+        n_samples: int = 100,
+        burn_in: int = 100,
+        sample_interval: int = 10,
         max_iter: int = 100,
         tol: float = 1e-4,
         verbose: bool = False,
@@ -38,6 +46,7 @@ def irt(
     theta_est (np.array): 被试的能力估计值。
     '''
     model = model.lower()
+    method = method.lower()
     grm_type = grm_type.lower()
     #检查2pl模型的数据是否符合要求，即是否为二元数据
     if model== '2pl':
@@ -50,6 +59,10 @@ def irt(
     if model not in ['2pl', 'grm']:
         raise ValueError(
             f"model参数必须为'2pl', 'grm',当前模型为{model}。\n"
+        )
+    if method not in ['em', 'mcem', 'saem', 'mcmc']:
+        raise ValueError(
+            f"method must be one of 'em', 'mcem', 'saem', or 'mcmc'; got {method}."
         )
     if grm_type not in ['step', 'stand']:
         raise ValueError(
@@ -67,6 +80,94 @@ def irt(
                 raise ValueError("n_categories必须为一维数组或列表，请检查数据。")
         else:
             raise ValueError("n_categories必须为None、列表或一维numpy数组，请检查数据。")
+    if method != 'em':
+        sparse_response = dataframe_to_sparse_response(response_df)
+        analyze_sparse_response(
+            sparse_response,
+            n_categories=n_categories if model == 'grm' else None,
+            binary=(model == '2pl'),
+        )
+
+        if model == '2pl':
+            if method == 'mcmc':
+                return irt_mcmc_sparse(
+                    sparse_response,
+                    n_samples=n_samples,
+                    burn_in=burn_in,
+                    verbose=verbose,
+                )
+            if method == 'mcem':
+                return irt_mcem_sparse(
+                    sparse_response,
+                    n_samples=n_samples,
+                    burn_in=burn_in,
+                    max_iter=max_iter,
+                    tol=tol,
+                    sample_interval=sample_interval,
+                    verbose=verbose,
+                )
+            return irt_saem_sparse(
+                sparse_response,
+                max_iter=max_iter,
+                tol=tol,
+                verbose=verbose,
+            )
+
+        if grm_type == 'step':
+            if method == 'mcmc':
+                return grm_mcmc_stepwise_sparse(
+                    sparse_response,
+                    n_categories,
+                    n_samples=n_samples,
+                    burn_in=burn_in,
+                    verbose=verbose,
+                )
+            if method == 'mcem':
+                return grm_mcem_stepwise_sparse(
+                    sparse_response,
+                    n_categories,
+                    n_samples=n_samples,
+                    burn_in=burn_in,
+                    max_iter=max_iter,
+                    tol=tol,
+                    sample_interval=sample_interval,
+                    verbose=verbose,
+                )
+            return grm_saem_stepwise_sparse(
+                sparse_response,
+                n_categories,
+                max_iter=max_iter,
+                tol=tol,
+                verbose=verbose,
+            )
+
+        if method == 'mcmc':
+            return grm_mcmc_standard_sparse(
+                sparse_response,
+                n_categories,
+                n_samples=n_samples,
+                burn_in=burn_in,
+                verbose=verbose,
+            )
+        if method == 'mcem':
+            return grm_mcem_standard_sparse(
+                sparse_response,
+                n_categories,
+                n_samples=n_samples,
+                burn_in=burn_in,
+                max_iter=max_iter,
+                tol=tol,
+                sample_interval=sample_interval,
+                verbose=verbose,
+            )
+        return grm_saem_standard_sparse(
+            sparse_response,
+            n_categories,
+            max_iter=max_iter,
+            tol=tol,
+            verbose=verbose,
+        )
+
     if use_sparse:
         if n_quadrature < 1:
             raise ValueError("n_quadrature must be greater than 0.")

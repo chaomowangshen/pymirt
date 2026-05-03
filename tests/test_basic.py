@@ -376,6 +376,76 @@ def test_mirt_mgrm_sparse_sampling_methods():
             _assert_finite(theta_est)
 
 
+def test_irt_2pl_sampling_methods():
+    """Single-dimensional 2PL should support MCMC, MCEM, and SAEM"""
+    np.random.seed(13)
+    n_subjects = 12
+    n_items = 4
+    response_data = np.random.randint(0, 2, size=(n_subjects, n_items)).astype(float)
+    response_data[np.random.rand(n_subjects, n_items) < 0.15] = np.nan
+    response_df = pd.DataFrame(response_data)
+
+    for method in ['mcmc', 'mcem', 'saem']:
+        np.random.seed(303)
+        a_est, b_est, theta_est = irt(
+            response_df=response_df,
+            model='2pl',
+            method=method,
+            n_samples=3,
+            burn_in=2,
+            max_iter=1,
+            tol=1e-2,
+        )
+
+        assert a_est.shape == (n_items,)
+        assert b_est.shape == (n_items,)
+        assert theta_est.shape == (n_subjects,)
+        assert np.all(a_est > 0)
+        _assert_finite(a_est)
+        _assert_finite(b_est)
+        _assert_finite(theta_est)
+
+
+def test_irt_grm_sampling_methods():
+    """Single-dimensional GRM should support MCMC, MCEM, and SAEM"""
+    np.random.seed(14)
+    n_subjects = 10
+    n_items = 3
+    n_categories = np.array([3, 3, 4])
+    response_data = np.column_stack([
+        np.random.randint(0, n_categories[j], size=n_subjects)
+        for j in range(n_items)
+    ]).astype(float)
+    response_data[np.random.rand(n_subjects, n_items) < 0.15] = np.nan
+    response_df = pd.DataFrame(response_data)
+
+    for grm_type in ['step', 'stand']:
+        for method in ['mcmc', 'mcem', 'saem']:
+            np.random.seed(404)
+            a_est, b_est, theta_est = irt(
+                response_df=response_df,
+                model='grm',
+                grm_type=grm_type,
+                method=method,
+                n_categories=n_categories,
+                n_samples=3,
+                burn_in=2,
+                max_iter=1,
+                tol=1e-2,
+            )
+
+            assert a_est.shape == (n_items,)
+            assert len(b_est) == n_items
+            assert theta_est.shape == (n_subjects,)
+            assert np.all(a_est > 0)
+            for item_id, thresholds in enumerate(b_est):
+                assert len(thresholds) == n_categories[item_id] - 1
+                assert np.all(np.diff(thresholds) >= 0)
+            _assert_finite(a_est)
+            _assert_finite(b_est)
+            _assert_finite(theta_est)
+
+
 def test_sparse_mirt_validation_errors():
     """Sparse MIRT should keep validation explicit"""
     response_df = pd.DataFrame(np.random.randint(0, 2, size=(10, 4)).astype(float))

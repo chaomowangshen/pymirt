@@ -748,6 +748,172 @@ def mgrm_saem_stepwise_sparse(
     return a_est, [np.sort(d)[::-1] for d in d_est], theta_est
 
 
+def irt_mcmc_sparse(sparse_response, n_samples=3000, burn_in=2000, verbose=False):
+    """Estimate a single-dimensional 2PL model via the sparse M2PL sampler."""
+
+    a_matrix, d_est, theta_matrix = mirt_mcmc_sparse(
+        sparse_response,
+        _unit_q(sparse_response.n_items),
+        n_samples=n_samples,
+        burn_in=burn_in,
+        verbose=verbose,
+    )
+    return _m2pl_to_2pl_parameters(a_matrix, d_est, theta_matrix)
+
+
+def irt_mcem_sparse(
+    sparse_response,
+    n_samples=300,
+    burn_in=200,
+    max_iter=100,
+    tol=1e-4,
+    sample_interval=10,
+    verbose=False,
+):
+    """Estimate a single-dimensional 2PL model via sparse MCEM."""
+
+    a_matrix, d_est, theta_matrix = mirt_mcem_sparse(
+        sparse_response,
+        _unit_q(sparse_response.n_items),
+        n_samples=n_samples,
+        burn_in=burn_in,
+        max_iter=max_iter,
+        tol=tol,
+        sample_interval=sample_interval,
+        verbose=verbose,
+    )
+    return _m2pl_to_2pl_parameters(a_matrix, d_est, theta_matrix)
+
+
+def irt_saem_sparse(sparse_response, max_iter=100, tol=1e-4, verbose=False):
+    """Estimate a single-dimensional 2PL model via sparse SAEM."""
+
+    a_matrix, d_est, theta_matrix = mirt_saem_sparse(
+        sparse_response,
+        _unit_q(sparse_response.n_items),
+        max_iter=max_iter,
+        tol=tol,
+        verbose=verbose,
+    )
+    return _m2pl_to_2pl_parameters(a_matrix, d_est, theta_matrix)
+
+
+def grm_mcmc_stepwise_sparse(
+    sparse_response, n_categories, n_samples=3000, burn_in=2000, verbose=False
+):
+    """Estimate a single-dimensional GRM stepwise model via sparse MGRM MCMC."""
+
+    a_matrix, d_est, theta_matrix = mgrm_mcmc_stepwise_sparse(
+        sparse_response,
+        _unit_q(sparse_response.n_items),
+        n_categories,
+        n_samples=n_samples,
+        burn_in=burn_in,
+        verbose=verbose,
+    )
+    return _mgrm_to_grm_parameters(a_matrix, d_est, theta_matrix)
+
+
+def grm_mcem_stepwise_sparse(
+    sparse_response,
+    n_categories,
+    n_samples=300,
+    burn_in=200,
+    max_iter=100,
+    tol=1e-4,
+    sample_interval=10,
+    verbose=False,
+):
+    """Estimate a single-dimensional GRM stepwise model via sparse MCEM."""
+
+    a_matrix, d_est, theta_matrix = mgrm_mcem_stepwise_sparse(
+        sparse_response,
+        _unit_q(sparse_response.n_items),
+        n_categories,
+        n_samples=n_samples,
+        burn_in=burn_in,
+        max_iter=max_iter,
+        tol=tol,
+        sample_interval=sample_interval,
+        verbose=verbose,
+    )
+    return _mgrm_to_grm_parameters(a_matrix, d_est, theta_matrix)
+
+
+def grm_saem_stepwise_sparse(
+    sparse_response, n_categories, max_iter=100, tol=1e-4, verbose=False
+):
+    """Estimate a single-dimensional GRM stepwise model via sparse SAEM."""
+
+    a_matrix, d_est, theta_matrix = mgrm_saem_stepwise_sparse(
+        sparse_response,
+        _unit_q(sparse_response.n_items),
+        n_categories,
+        max_iter=max_iter,
+        tol=tol,
+        verbose=verbose,
+    )
+    return _mgrm_to_grm_parameters(a_matrix, d_est, theta_matrix)
+
+
+def grm_mcmc_standard_sparse(
+    sparse_response, n_categories, n_samples=3000, burn_in=2000, verbose=False
+):
+    """Estimate a single-dimensional GRM standard model via sparse MGRM MCMC."""
+
+    a_matrix, d_est, theta_matrix = mgrm_mcmc_standard_sparse(
+        sparse_response,
+        _unit_q(sparse_response.n_items),
+        n_categories,
+        n_samples=n_samples,
+        burn_in=burn_in,
+        verbose=verbose,
+    )
+    return _mgrm_to_grm_parameters(a_matrix, d_est, theta_matrix)
+
+
+def grm_mcem_standard_sparse(
+    sparse_response,
+    n_categories,
+    n_samples=300,
+    burn_in=200,
+    max_iter=100,
+    tol=1e-4,
+    sample_interval=10,
+    verbose=False,
+):
+    """Estimate a single-dimensional GRM standard model via sparse MCEM."""
+
+    a_matrix, d_est, theta_matrix = mgrm_mcem_standard_sparse(
+        sparse_response,
+        _unit_q(sparse_response.n_items),
+        n_categories,
+        n_samples=n_samples,
+        burn_in=burn_in,
+        max_iter=max_iter,
+        tol=tol,
+        sample_interval=sample_interval,
+        verbose=verbose,
+    )
+    return _mgrm_to_grm_parameters(a_matrix, d_est, theta_matrix)
+
+
+def grm_saem_standard_sparse(
+    sparse_response, n_categories, max_iter=100, tol=1e-4, verbose=False
+):
+    """Estimate a single-dimensional GRM standard model via sparse SAEM."""
+
+    a_matrix, d_est, theta_matrix = mgrm_saem_standard_sparse(
+        sparse_response,
+        _unit_q(sparse_response.n_items),
+        n_categories,
+        max_iter=max_iter,
+        tol=tol,
+        verbose=verbose,
+    )
+    return _mgrm_to_grm_parameters(a_matrix, d_est, theta_matrix)
+
+
 def estimate_d_only_mcmc_sparse(
     a_params, theta, sparse_response, n_samples=3000, burn_in=2000, verbose=False
 ):
@@ -836,6 +1002,25 @@ def _fit_mgrm_item_from_theta(theta, values, active_dims, init_a, init_d, n_cate
 def _item_users_values(sparse_response, item_id):
     obs_idx = sparse_response.item_observations(item_id)
     return sparse_response.user_idx[obs_idx], sparse_response.values[obs_idx]
+
+
+def _unit_q(n_items):
+    return np.ones((n_items, 1), dtype=int)
+
+
+def _m2pl_to_2pl_parameters(a_matrix, d_est, theta_matrix):
+    a_est = np.asarray(a_matrix, dtype=float)[:, 0]
+    b_est = -np.asarray(d_est, dtype=float) / np.maximum(a_est, 1e-12)
+    return a_est, b_est, np.asarray(theta_matrix, dtype=float)[:, 0]
+
+
+def _mgrm_to_grm_parameters(a_matrix, d_est, theta_matrix):
+    a_est = np.asarray(a_matrix, dtype=float)[:, 0]
+    b_est = []
+    for item_id, d_item in enumerate(d_est):
+        b_item = -np.asarray(d_item, dtype=float) / max(a_est[item_id], 1e-12)
+        b_est.append(np.sort(b_item))
+    return a_est, b_est, np.asarray(theta_matrix, dtype=float)[:, 0]
 
 
 def _m2pl_observation_loglik(theta_obs, a_obs, d_obs, values):
