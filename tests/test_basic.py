@@ -10,6 +10,7 @@ from pymirt.units import (
     eap_2pl_sparse,
     eap_m2pl,
     eap_m2pl_sparse,
+    generate_rasch_data,
     pad_grm_parameters,
     compute_m2pl_log_likelihood,
     compute_m2pl_log_likelihood_item,
@@ -111,6 +112,219 @@ def test_irt_2pl_sparse_basic():
     assert a_est.shape == (n_items,)
     assert b_est.shape == (n_items,)
     assert theta_est.shape == (n_subjects,)
+
+
+def test_irt_rasch_dense_basic():
+    """Dense Rasch EM should return the same tuple shape as 2PL"""
+    np.random.seed(71)
+    n_subjects = 40
+    n_items = 5
+    response_data = np.random.randint(0, 2, size=(n_subjects, n_items)).astype(float)
+    response_data[np.random.rand(n_subjects, n_items) < 0.1] = np.nan
+    response_df = pd.DataFrame(response_data)
+
+    a_est, b_est, theta_est = irt(
+        response_df=response_df,
+        model='rasch',
+        n_quadrature=5,
+        max_iter=1,
+        tol=1e-2,
+    )
+
+    assert a_est.shape == (n_items,)
+    assert b_est.shape == (n_items,)
+    assert theta_est.shape == (n_subjects,)
+    np.testing.assert_allclose(a_est, np.ones(n_items))
+    _assert_finite(b_est)
+    _assert_finite(theta_est)
+
+
+def test_irt_rasch_sparse_basic():
+    """Sparse Rasch EM should run from a DataFrame with missing values"""
+    np.random.seed(72)
+    n_subjects = 36
+    n_items = 5
+    response_data = np.random.randint(0, 2, size=(n_subjects, n_items)).astype(float)
+    response_data[np.random.rand(n_subjects, n_items) < 0.25] = np.nan
+    response_df = pd.DataFrame(response_data)
+
+    a_est, b_est, theta_est = irt(
+        response_df=response_df,
+        model='rasch',
+        n_quadrature=5,
+        max_iter=1,
+        tol=1e-2,
+        use_sparse=True,
+    )
+
+    assert a_est.shape == (n_items,)
+    assert b_est.shape == (n_items,)
+    assert theta_est.shape == (n_subjects,)
+    np.testing.assert_allclose(a_est, np.ones(n_items))
+    _assert_finite(b_est)
+    _assert_finite(theta_est)
+
+
+def test_irt_rasch_alias_1pl():
+    """'1pl' and 'rasch' should be accepted as aliases"""
+    np.random.seed(73)
+    n_subjects = 28
+    n_items = 4
+    response_df = pd.DataFrame(
+        np.random.randint(0, 2, size=(n_subjects, n_items)).astype(float)
+    )
+
+    for model_name in ['1pl', 'rasch']:
+        a_est, b_est, theta_est = irt(
+            response_df=response_df,
+            model=model_name,
+            n_quadrature=3,
+            max_iter=1,
+            tol=1e-2,
+        )
+        assert a_est.shape == (n_items,)
+        assert b_est.shape == (n_items,)
+        assert theta_est.shape == (n_subjects,)
+        np.testing.assert_allclose(a_est, np.ones(n_items))
+
+
+def test_irt_rasch_object_api():
+    """IRT object API should expose Rasch sampling parameters as item/a/b"""
+    np.random.seed(74)
+    n_subjects = 30
+    n_items = 4
+    response_df = pd.DataFrame(
+        np.random.randint(0, 2, size=(n_subjects, n_items)).astype(float)
+    )
+
+    result = IRT(
+        model='rasch',
+        method='mcmc',
+        n_samples=3,
+        burn_in=2,
+        n_quadrature=3,
+        max_iter=1,
+        tol=1e-2,
+        use_sparse=True,
+    ).fit(response_df)
+
+    assert isinstance(result, IRTResult)
+    item_params = result.item_params()
+    assert list(item_params.columns) == ['item', 'a', 'b']
+    assert len(item_params) == n_items
+    np.testing.assert_allclose(item_params['a'].values, np.ones(n_items))
+    assert result.person_params().shape == (n_subjects, 2)
+    assert result.summary()['model'] == 'rasch'
+
+
+def test_irt_rasch_validation_errors():
+    """Rasch should keep binary validation"""
+    response_df = pd.DataFrame(np.random.randint(0, 2, size=(20, 4)).astype(float))
+
+    invalid_binary = response_df.copy()
+    invalid_binary.iloc[0, 0] = 2
+    with pytest.raises(ValueError):
+        irt(
+            response_df=invalid_binary,
+            model='1pl',
+            n_quadrature=3,
+            max_iter=1,
+        )
+
+
+def test_irt_rasch_sampling_methods():
+    """Rasch should support MCMC, MCEM, and SAEM with fixed a=1"""
+    np.random.seed(76)
+    n_subjects = 12
+    n_items = 4
+    response_data = np.random.randint(0, 2, size=(n_subjects, n_items)).astype(float)
+    response_data[np.random.rand(n_subjects, n_items) < 0.15] = np.nan
+    response_df = pd.DataFrame(response_data)
+
+    for method in ['mcmc', 'mcem', 'saem']:
+        np.random.seed(761)
+        a_est, b_est, theta_est = irt(
+            response_df=response_df,
+            model='rasch',
+            method=method,
+            n_samples=3,
+            burn_in=2,
+            max_iter=1,
+            tol=1e-2,
+        )
+
+        assert a_est.shape == (n_items,)
+        assert b_est.shape == (n_items,)
+        assert theta_est.shape == (n_subjects,)
+        np.testing.assert_allclose(a_est, np.ones(n_items))
+        _assert_finite(b_est)
+        _assert_finite(theta_est)
+
+
+def test_irt_rasch_sampling_alias_1pl():
+    """'1pl' and 'rasch' aliases should work for sampling methods"""
+    np.random.seed(77)
+    n_subjects = 10
+    n_items = 3
+    response_df = pd.DataFrame(
+        np.random.randint(0, 2, size=(n_subjects, n_items)).astype(float)
+    )
+
+    for model_name in ['1pl', 'rasch']:
+        np.random.seed(771)
+        a_est, b_est, theta_est = irt(
+            response_df=response_df,
+            model=model_name,
+            method='mcmc',
+            n_samples=3,
+            burn_in=2,
+        )
+        assert a_est.shape == (n_items,)
+        assert b_est.shape == (n_items,)
+        assert theta_est.shape == (n_subjects,)
+        np.testing.assert_allclose(a_est, np.ones(n_items))
+
+
+def test_irt_rasch_sampling_invalid_binary():
+    """Rasch sampling should keep binary response validation"""
+    response_df = pd.DataFrame(np.random.randint(0, 2, size=(12, 3)).astype(float))
+    response_df.iloc[0, 0] = 2
+    with pytest.raises(ValueError):
+        irt(
+            response_df=response_df,
+            model='rasch',
+            method='mcmc',
+            n_samples=3,
+            burn_in=2,
+        )
+
+
+def test_irt_rasch_recovery_smoke():
+    """Rasch estimates should have positive rough recovery on simulated data"""
+    response, _, _, b_true, _ = generate_rasch_data(
+        n=500,
+        items=15,
+        missing_rate=0.15,
+        seed=75,
+    )
+    response_df = pd.DataFrame(response)
+
+    a_est, b_est, theta_est = irt(
+        response_df=response_df,
+        model='rasch',
+        method='mcem',
+        n_samples=15,
+        burn_in=10,
+        max_iter=4,
+        sample_interval=2,
+        tol=1e-3,
+    )
+
+    assert a_est.shape == (15,)
+    np.testing.assert_allclose(a_est, np.ones(15))
+    _assert_finite(b_est)
+    _assert_finite(theta_est)
+    assert np.corrcoef(b_true, b_est)[0, 1] > 0
 
 
 def test_mirt_m2pl_sparse_basic():

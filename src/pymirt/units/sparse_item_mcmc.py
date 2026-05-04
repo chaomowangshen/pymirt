@@ -798,6 +798,161 @@ def irt_saem_sparse(sparse_response, max_iter=100, tol=1e-4, verbose=False):
     return _m2pl_to_2pl_parameters(a_matrix, d_est, theta_matrix)
 
 
+def rasch_mcmc_sparse(sparse_response, n_samples=3000, burn_in=2000, verbose=False):
+    """Estimate a Rasch/1PL model with fixed discrimination via sparse MCMC."""
+
+    start_time = time.time()
+    n_items = sparse_response.n_items
+    a_est = _rasch_a_matrix(n_items)
+    d_est = np.random.normal(0, 1, n_items)
+    theta_est = np.zeros((sparse_response.n_users, 1))
+    rv_d = norm(loc=0, scale=1)
+    rv_theta = multivariate_normal(mean=np.zeros(1), cov=np.eye(1))
+    samples_d = np.zeros((n_items, n_samples))
+    samples_theta = np.zeros((sparse_response.n_users, n_samples, 1))
+    step_size_d = step_size_theta = 0.2
+
+    for iteration in range(n_samples + burn_in):
+        if verbose and iteration % 500 == 0:
+            print(f"=== sparse Rasch MCMC iter {iteration + 1}/{n_samples + burn_in} ===")
+        theta_est, step_size_theta = update_theta_parameters_sparse(
+            rv_theta, theta_est, a_est, d_est, sparse_response, step_size=step_size_theta
+        )
+        d_est, step_size_d = update_d_parameters_sparse(
+            rv_d, theta_est, a_est, d_est, sparse_response, step_size=step_size_d
+        )
+        if iteration >= burn_in:
+            sample_idx = iteration - burn_in
+            samples_d[:, sample_idx] = d_est
+            samples_theta[:, sample_idx, :] = theta_est
+
+    if verbose:
+        print(f"=== sparse Rasch MCMC done, elapsed={time.time() - start_time:.2f}s ===")
+    return _m2pl_to_2pl_parameters(
+        a_est, np.mean(samples_d, axis=1), np.mean(samples_theta, axis=1)
+    )
+
+
+def rasch_mcem_sparse(
+    sparse_response,
+    n_samples=300,
+    burn_in=200,
+    max_iter=100,
+    tol=1e-4,
+    sample_interval=10,
+    verbose=False,
+):
+    """Estimate a Rasch/1PL model with fixed discrimination via sparse MCEM."""
+
+    n_items = sparse_response.n_items
+    a_est = _rasch_a_matrix(n_items)
+    d_est = np.zeros(n_items)
+    theta_est = np.zeros((sparse_response.n_users, 1))
+    step_sizes = np.full(sparse_response.n_users, 0.2)
+    rv_theta = multivariate_normal(mean=np.zeros(1), cov=np.eye(1))
+    prev_ll = -np.inf
+    samples = None
+    theta_curr = theta_est.copy()
+
+    for iteration in range(max_iter):
+        sample_this_iter = iteration < 10 or iteration % sample_interval == 0
+        if sample_this_iter or samples is None:
+            samples, theta_curr, step_sizes, _ = mcmc_sampling_sparse(
+                theta_est,
+                a_est,
+                d_est,
+                sparse_response,
+                rv_theta,
+                step_sizes,
+                burn_in,
+                n_samples,
+                method="m2pl",
+            )
+            theta_est = np.mean(samples, axis=1)
+
+        d_new = d_est.copy()
+        sample_count = min(n_samples, 100)
+        for item_id in range(n_items):
+            users, values = _item_users_values(sparse_response, item_id)
+            theta_item = samples[users, -sample_count:, :].reshape(-1, 1)
+            values_item = np.repeat(values, sample_count)
+            d_j, success = _fit_rasch_d_from_theta(
+                theta_item, values_item, d_est[item_id]
+            )
+            if success:
+                d_new[item_id] = d_j
+
+        d_est = d_new
+        current_ll = np.sum(
+            compute_m2pl_user_loglik_state_sparse(theta_curr, a_est, d_est, sparse_response)
+        )
+        if verbose:
+            print(
+                f"=== sparse Rasch MCEM iter {iteration + 1}/{max_iter}, "
+                f"delta_ll={current_ll - prev_ll:.6f} ==="
+            )
+        if iteration > 0 and abs(current_ll - prev_ll) < tol:
+            break
+        prev_ll = current_ll
+
+    return _m2pl_to_2pl_parameters(a_est, d_est, theta_est)
+
+
+def rasch_saem_sparse(sparse_response, max_iter=100, tol=1e-4, verbose=False):
+    """Estimate a Rasch/1PL model with fixed discrimination via sparse SAEM."""
+
+    n_items = sparse_response.n_items
+    a_est = _rasch_a_matrix(n_items)
+    d_est = np.zeros(n_items)
+    theta_curr = np.zeros((sparse_response.n_users, 1))
+    theta_mean = theta_curr.copy()
+    step_sizes = np.full(sparse_response.n_users, 0.2)
+    rv_theta = multivariate_normal(mean=np.zeros(1), cov=np.eye(1))
+    gamma_sequence = np.ones(max_iter)
+    burn_in = 50
+    n_samples = 10
+    for k in range(burn_in, max_iter):
+        gamma_sequence[k] = 1.0 / (k - burn_in + 1) ** 0.7
+    prev_ll = -np.inf
+
+    for iteration in range(max_iter):
+        gamma = gamma_sequence[iteration]
+        samples, theta_curr, step_sizes, _ = mcmc_sampling_sparse(
+            theta_curr,
+            a_est,
+            d_est,
+            sparse_response,
+            rv_theta,
+            step_sizes,
+            burn_in,
+            n_samples,
+            method="m2pl",
+        )
+        theta_mean = np.mean(samples, axis=1)
+        d_new = d_est.copy()
+        for item_id in range(n_items):
+            users, values = _item_users_values(sparse_response, item_id)
+            d_j, success = _fit_rasch_d_from_theta(
+                theta_curr[users], values, d_est[item_id]
+            )
+            if success:
+                d_new[item_id] = (1 - gamma) * d_est[item_id] + gamma * d_j
+        d_est = d_new
+        current_ll = np.sum(
+            compute_m2pl_user_loglik_state_sparse(theta_curr, a_est, d_est, sparse_response)
+        )
+        if verbose:
+            print(
+                f"=== sparse Rasch SAEM iter {iteration + 1}/{max_iter}, "
+                f"delta_ll={current_ll - prev_ll:.6f} ==="
+            )
+        if iteration > 0 and abs(current_ll - prev_ll) < tol:
+            break
+        prev_ll = current_ll
+
+    return _m2pl_to_2pl_parameters(a_est, d_est, theta_mean)
+
+
 def grm_mcmc_stepwise_sparse(
     sparse_response, n_categories, n_samples=3000, burn_in=2000, verbose=False
 ):
@@ -954,6 +1109,26 @@ def estimate_d_only_from_theta_sparse(a_params, theta, sparse_response):
     return d_est, 0.0
 
 
+def _fit_rasch_d_from_theta(theta, values, init_d):
+    if values.size == 0:
+        return init_d, False
+
+    def objective(d_j):
+        return -np.sum(
+            _m2pl_observation_loglik(
+                theta,
+                np.ones((values.size, 1)),
+                np.full(values.size, d_j[0]),
+                values,
+            )
+        )
+
+    res = minimize(objective, [init_d], method="L-BFGS-B")
+    if not res.success:
+        return init_d, False
+    return res.x[0], True
+
+
 def _fit_m2pl_item_from_theta(theta, values, active_dims, init_a, init_d):
     dim = init_a.shape[0]
     num_a = int(np.sum(active_dims))
@@ -1006,6 +1181,10 @@ def _item_users_values(sparse_response, item_id):
 
 def _unit_q(n_items):
     return np.ones((n_items, 1), dtype=int)
+
+
+def _rasch_a_matrix(n_items):
+    return np.ones((n_items, 1), dtype=float)
 
 
 def _m2pl_to_2pl_parameters(a_matrix, d_est, theta_matrix):

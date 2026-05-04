@@ -6,7 +6,7 @@ English | [中文](README_zh.md)
 
 ## Features
 
-- **Unidimensional IRT Models**: Supports 2PL model and Graded Response Model (GRM)
+- **Unidimensional IRT Models**: Supports Rasch/1PL, 2PL, and Graded Response Model (GRM)
 - **Multidimensional IRT Models**: Supports Multidimensional 2PL (M2PL) and Multidimensional Graded Response Model (MGRM)
 - **Multiple Estimation Methods**: Supports EM, Monte Carlo EM (MCEM), SAEM, and MCMC methods
 - **Ability Estimation**: Supports Expected A Posteriori (EAP) and Markov Chain Monte Carlo estimation
@@ -128,6 +128,7 @@ Result objects provide `as_tuple()` for the original return style, plus `item_pa
 ## Supported Models
 
 ### Unidimensional Models
+- **Rasch / 1PL**: One-Parameter Logistic Model with fixed discrimination (`a = 1`)
 - **2PL**: Two-Parameter Logistic Model
 - **GRM_stand**: Standard Graded Response Model
 - **GRM_step**: Stepwise Graded Response Model
@@ -141,9 +142,10 @@ Result objects provide `as_tuple()` for the original return style, plus `item_pa
 
 ### irt() function parameters
 - `response_df`: Response matrix (DataFrame)
-- `model`: IRT model type ('2pl' or 'grm')
+- `model`: IRT model type ('rasch', '1pl', '2pl', or 'grm')
 - `grm_type`: GRM variant ('step' or 'stand')
 - `method`: Estimation method ('em', 'mcem', 'saem', or 'mcmc')
+- Rasch/1PL supports EM, MCMC, MCEM, and SAEM with fixed discrimination (`a = 1`).
 - `n_quadrature`: Number of Gauss-Hermite quadrature points
 - `n_categories`: Number of categories for each item (for GRM models)
 - `n_samples`: Number of MCMC samples (for MCMC/MCEM methods)

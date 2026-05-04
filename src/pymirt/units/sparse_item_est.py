@@ -117,6 +117,22 @@ def estimate_b_only_sparse(
     return b_est, total_time
 
 
+def rasch_em_sparse(
+    sparse_response, n_quadrature=27, max_iter=100, tol=1e-4, verbose=False
+):
+    n_items = sparse_response.n_items
+    a_est = np.ones(n_items)
+    b_est, _ = estimate_b_only_sparse(
+        a_est,
+        sparse_response,
+        n_quadrature=n_quadrature,
+        max_iter=max_iter,
+        tol=tol,
+        verbose=verbose,
+    )
+    return a_est, b_est
+
+
 def grm_em_stepwise_sparse(
     sparse_response, n_categories, n_quadrature=27, max_iter=100, tol=1e-4, verbose=False
 ):

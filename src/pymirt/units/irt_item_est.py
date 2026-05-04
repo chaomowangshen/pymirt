@@ -153,6 +153,25 @@ def estimate_b_only(a_params, response_matrix,mask_matrix, n_quadrature=27, max_
 
 
 
+def rasch_em(response_matrix, mask_matrix, n_quadrature=27, max_iter=100, tol=1e-4, verbose=False):
+    """
+    Rasch/1PL estimation with fixed discrimination parameters.
+    """
+    response_matrix = np.nan_to_num(response_matrix)
+    n_items = response_matrix.shape[1]
+    a_est = np.ones(n_items)
+    b_est, _ = estimate_b_only(
+        a_est,
+        response_matrix,
+        mask_matrix,
+        n_quadrature=n_quadrature,
+        max_iter=max_iter,
+        tol=tol,
+        verbose=verbose,
+    )
+    return a_est, b_est
+
+
 def grm_em_stepwise(response_matrix,mask_matrix, n_categories, n_quadrature=27, max_iter=100, tol=1e-4, verbose=False):
     """
     分步估计多级计分IRT参数

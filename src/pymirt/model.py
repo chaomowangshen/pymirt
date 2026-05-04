@@ -27,7 +27,7 @@ class IRTResult:
         a = np.asarray(self.a_, dtype=float)
         model = self.model.lower()
 
-        if model == "2pl":
+        if model in {"1pl", "rasch", "2pl"}:
             return pd.DataFrame(
                 {
                     "item": np.arange(a.size),

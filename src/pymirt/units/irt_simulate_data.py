@@ -37,6 +37,29 @@ def generate_2pl_data(n=1000, items=20, missing_rate=0.2,seed=None):
     return response_missing, mask_matrix, a_true, b_true, theta
 
 
+def generate_rasch_data(n=1000, items=20, missing_rate=0.2, seed=None):
+    """
+    Generate binary Rasch/1PL response data with missing values.
+    """
+    if seed is not None:
+        np.random.seed(seed)
+
+    a_true = np.ones(items)
+    b_true = np.random.normal(0, 1.0, items)
+    theta = np.random.normal(0, 1, n)
+    logits = theta.reshape(-1, 1) - b_true.reshape(1, -1)
+    p_correct = 1 / (1 + np.exp(-np.clip(logits, -35, 35)))
+    response = (np.random.rand(n, items) < p_correct).astype(int)
+    mask = np.random.choice([0, 1], size=(n, items), p=[missing_rate, 1 - missing_rate])
+    mask_matrix = mask.astype(float)
+    response_missing = response.copy().astype(float)
+    response_missing[mask == 0] = np.nan
+    return response_missing, mask_matrix, a_true, b_true, theta
+
+
+generate_1pl_data = generate_rasch_data
+
+
 
 def generate_m2pl_data(n=1000, items=20, dim=3, missing_rate=0.2, seed=None):
     """
