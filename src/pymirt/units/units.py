@@ -537,6 +537,46 @@ def compute_2pl_log_likelihood(theta, a, b, response_matrix, mask_matrix, poster
 
 
 ##################################多维2PL模型(M2PL)相关函数####################
+def compute_3pl_prob(theta, a, b, c):
+    """
+    Compute single-dimensional 3PL response probabilities.
+    """
+    a = np.asarray(a).reshape(1, -1)
+    b = np.asarray(b).reshape(1, -1)
+    c = np.asarray(c).reshape(1, -1)
+    logits = np.clip(a * (np.asarray(theta).reshape(-1, 1) - b), -35, 35)
+    logistic = 1.0 / (1.0 + np.exp(-logits))
+    p = c + (1.0 - c) * logistic
+    return np.clip(p, 1e-15, 1.0 - 1e-15)
+
+
+def compute_3pl_posterior(theta, a, b, c, response, mask_matrix, quad_weights):
+    p = compute_3pl_prob(theta, a, b, c)
+    log_likelihood = (
+        response[np.newaxis, :, :] * np.log(p[:, np.newaxis, :] + 1e-15)
+        + (1 - response[np.newaxis, :, :]) * np.log(1 - p[:, np.newaxis, :] + 1e-15)
+    )
+    log_likelihood *= mask_matrix[np.newaxis, :, :]
+    log_likelihood_sum = np.sum(log_likelihood, axis=2)
+    log_post = log_likelihood_sum + np.log(quad_weights)[:, None]
+    max_log = np.max(log_post, axis=0, keepdims=True)
+    scaled = np.exp(log_post - max_log)
+    denom = np.sum(scaled, axis=0, keepdims=True)
+    denom = np.where(denom < 1e-15, 1e-15, denom)
+    return (scaled / denom).T
+
+
+def compute_3pl_log_likelihood(theta, a, b, c, response_matrix, mask_matrix, posterior):
+    p = compute_3pl_prob(theta, a, b, c)
+    log_likelihood = (
+        response_matrix[np.newaxis, :, :] * np.log(p[:, np.newaxis, :] + 1e-15)
+        + (1 - response_matrix[np.newaxis, :, :]) * np.log(1 - p[:, np.newaxis, :] + 1e-15)
+    )
+    log_likelihood *= mask_matrix[np.newaxis, :, :]
+    log_likelihood_sum = np.sum(log_likelihood, axis=2)
+    return float(np.sum(log_likelihood_sum * posterior.T))
+
+
 def m2pl_prob(theta,a,d):
     """
     计算多维2PL模型下，给定能力theta、项目参数，得到每个等级的作答概率。

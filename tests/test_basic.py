@@ -10,6 +10,7 @@ from pymirt.units import (
     eap_2pl_sparse,
     eap_m2pl,
     eap_m2pl_sparse,
+    generate_3pl_data,
     generate_rasch_data,
     pad_grm_parameters,
     compute_m2pl_log_likelihood,
@@ -325,6 +326,154 @@ def test_irt_rasch_recovery_smoke():
     _assert_finite(b_est)
     _assert_finite(theta_est)
     assert np.corrcoef(b_true, b_est)[0, 1] > 0
+
+
+def test_irt_3pl_dense_basic():
+    """Dense 3PL EM should return a four-tuple with guessing parameters"""
+    np.random.seed(78)
+    n_subjects = 40
+    n_items = 5
+    response_data = np.random.randint(0, 2, size=(n_subjects, n_items)).astype(float)
+    response_data[np.random.rand(n_subjects, n_items) < 0.1] = np.nan
+    response_df = pd.DataFrame(response_data)
+
+    a_est, b_est, c_est, theta_est = irt(
+        response_df=response_df,
+        model='3pl',
+        n_quadrature=5,
+        max_iter=1,
+        tol=1e-2,
+    )
+
+    assert a_est.shape == (n_items,)
+    assert b_est.shape == (n_items,)
+    assert c_est.shape == (n_items,)
+    assert theta_est.shape == (n_subjects,)
+    assert np.all(a_est > 0)
+    assert np.all((c_est >= 0) & (c_est <= 0.35))
+    _assert_finite(a_est)
+    _assert_finite(b_est)
+    _assert_finite(c_est)
+    _assert_finite(theta_est)
+
+
+def test_irt_3pl_sparse_basic():
+    """Sparse 3PL EM should run from a DataFrame with missing values"""
+    np.random.seed(79)
+    n_subjects = 36
+    n_items = 5
+    response_data = np.random.randint(0, 2, size=(n_subjects, n_items)).astype(float)
+    response_data[np.random.rand(n_subjects, n_items) < 0.25] = np.nan
+    response_df = pd.DataFrame(response_data)
+
+    a_est, b_est, c_est, theta_est = irt(
+        response_df=response_df,
+        model='3pl',
+        n_quadrature=5,
+        max_iter=1,
+        tol=1e-2,
+        use_sparse=True,
+    )
+
+    assert a_est.shape == (n_items,)
+    assert b_est.shape == (n_items,)
+    assert c_est.shape == (n_items,)
+    assert theta_est.shape == (n_subjects,)
+    assert np.all(a_est > 0)
+    assert np.all((c_est >= 0) & (c_est <= 0.35))
+    _assert_finite(a_est)
+    _assert_finite(b_est)
+    _assert_finite(c_est)
+    _assert_finite(theta_est)
+
+
+def test_irt_3pl_object_api():
+    """IRT object API should expose 3PL item parameters as item/a/b/c"""
+    np.random.seed(80)
+    n_subjects = 30
+    n_items = 4
+    response_df = pd.DataFrame(
+        np.random.randint(0, 2, size=(n_subjects, n_items)).astype(float)
+    )
+
+    result = IRT(
+        model='3pl',
+        n_quadrature=3,
+        max_iter=1,
+        tol=1e-2,
+        use_sparse=True,
+    ).fit(response_df)
+
+    assert isinstance(result, IRTResult)
+    a_est, b_est, c_est, theta_est = result.as_tuple()
+    assert a_est.shape == (n_items,)
+    assert b_est.shape == (n_items,)
+    assert c_est.shape == (n_items,)
+    assert theta_est.shape == (n_subjects,)
+    item_params = result.item_params()
+    assert list(item_params.columns) == ['item', 'a', 'b', 'c']
+    assert len(item_params) == n_items
+    assert result.person_params().shape == (n_subjects, 2)
+    assert result.summary()['n_parameters'] == n_items * 3 + n_subjects
+
+
+def test_irt_3pl_validation_errors():
+    """3PL should validate binary data and reject sampling methods for now"""
+    response_df = pd.DataFrame(np.random.randint(0, 2, size=(20, 4)).astype(float))
+
+    invalid_binary = response_df.copy()
+    invalid_binary.iloc[0, 0] = 2
+    with pytest.raises(ValueError):
+        irt(
+            response_df=invalid_binary,
+            model='3pl',
+            n_quadrature=3,
+            max_iter=1,
+        )
+
+    with pytest.raises(NotImplementedError):
+        irt(
+            response_df=response_df,
+            model='3pl',
+            method='mcmc',
+            n_samples=3,
+            burn_in=2,
+        )
+
+
+def test_irt_3pl_recovery_smoke():
+    """3PL EM should have rough positive recovery on simulated data"""
+    response, _, _, b_true, c_true, theta_true = generate_3pl_data(
+        n=800,
+        items=20,
+        missing_rate=0.15,
+        seed=81,
+    )
+    response_df = pd.DataFrame(response)
+
+    a_est, b_est, c_est, theta_est = irt(
+        response_df=response_df,
+        model='3pl',
+        n_quadrature=7,
+        max_iter=8,
+        tol=1e-3,
+        use_sparse=True,
+    )
+
+    assert a_est.shape == (20,)
+    assert b_est.shape == (20,)
+    assert c_est.shape == (20,)
+    assert theta_est.shape == (800,)
+    assert np.all(a_est > 0)
+    assert np.all((c_est >= 0) & (c_est <= 0.35))
+    _assert_finite(a_est)
+    _assert_finite(b_est)
+    _assert_finite(c_est)
+    _assert_finite(theta_est)
+    assert np.corrcoef(b_true, b_est)[0, 1] > 0
+    assert np.corrcoef(theta_true, theta_est)[0, 1] > 0
+    assert 0 <= np.mean(c_est) <= 0.35
+    assert abs(np.mean(c_est) - np.mean(c_true)) < 0.25
 
 
 def test_mirt_m2pl_sparse_basic():

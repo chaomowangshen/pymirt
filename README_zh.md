@@ -6,7 +6,7 @@ PyMIRT 是一个用于项目反应理论（Item Response Theory, IRT）参数估
 
 ## 特性
 
-- **单维 IRT 模型**：支持 Rasch/1PL、2PL 模型和等级反应模型（GRM）
+- **单维 IRT 模型**：支持 Rasch/1PL、2PL、3PL 模型和等级反应模型（GRM）
 - **多维 IRT 模型**：支持多维 2PL 模型（M2PL）和多维等级反应模型（MGRM）
 - **多种估计方法**：支持 EM、蒙特卡洛 EM（MCEM）、SAEM 和 MCMC 方法
 - **能力估计**：支持期望后验估计（EAP）和马尔可夫链蒙特卡洛估计
@@ -130,6 +130,7 @@ print(mirt_result.person_params().head())
 ### 单维模型
 - **Rasch / 1PL**：单参数逻辑模型，固定区分度 `a = 1`
 - **2PL**：二参数逻辑模型
+- **3PL**：三参数逻辑模型，包含猜测参数 `c`
 - **GRM_stand**：标准等级反应模型
 - **GRM_step**：步骤等级反应模型
 
@@ -142,10 +143,11 @@ print(mirt_result.person_params().head())
 
 ### irt() 函数参数
 - `response_df`: 被试作答矩阵（DataFrame）
-- `model`: IRT 模型类型（'rasch'、'1pl'、'2pl' 或 'grm'）
+- `model`: IRT 模型类型（'rasch'、'1pl'、'2pl'、'3pl' 或 'grm'）
 - `grm_type`: GRM 类型（'step' 或 'stand'）
 - `method`: 估计方法（'em', 'mcem', 'saem', 'mcmc'）
 - Rasch/1PL 支持 EM、MCMC、MCEM 和 SAEM，区分度固定为 `a = 1`。
+- 3PL 当前仅支持 EM/EAP；MCMC、MCEM 和 SAEM 留到后续阶段。
 - `n_quadrature`: 高斯-厄米特求积点数
 - `n_categories`: 项目类别数（用于等级反应模型）
 - `n_samples`: MCMC 样本数（用于 MCMC/MCEM 方法）

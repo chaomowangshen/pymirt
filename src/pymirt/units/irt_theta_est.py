@@ -64,6 +64,38 @@ def eap_2pl(res_matrix, mask_matrix,a_params, b_params, quad_points, quad_weight
 
 
 
+def prob_3pl(theta, a, b, c):
+    z = np.clip(a * (theta - b), -35, 35)
+    logistic = 1.0 / (1.0 + np.exp(-z))
+    return np.clip(c + (1.0 - c) * logistic, 1e-15, 1.0 - 1e-15)
+
+
+def eap_3pl(res_matrix, mask_matrix, a_params, b_params, c_params, quad_points, quad_weights):
+    """
+    Estimate abilities via EAP for a single-dimensional 3PL model.
+    """
+    res_matrix = np.nan_to_num(res_matrix, nan=0.0)
+    num_persons, num_items = res_matrix.shape
+    a = a_params.reshape(1, 1, -1)
+    b = b_params.reshape(1, 1, -1)
+    c = c_params.reshape(1, 1, -1)
+    theta_nodes = quad_points.reshape(1, -1, 1)
+    res = res_matrix.reshape(num_persons, 1, -1)
+    p_correct = prob_3pl(theta_nodes, a, b, c)
+    p_response = res * p_correct + (1 - res) * (1 - p_correct)
+    p_response = np.where(mask_matrix.reshape(num_persons, 1, num_items).astype(bool), p_response, 1.0)
+    log_likelihood = np.sum(np.log(p_response), axis=2)
+    log_likelihood_max = np.max(log_likelihood, axis=1, keepdims=True)
+    likelihood_scaled = np.exp(log_likelihood - log_likelihood_max)
+    numerator = np.sum(
+        likelihood_scaled * quad_points.reshape(1, -1) * quad_weights.reshape(1, -1),
+        axis=1,
+    )
+    denominator = np.sum(likelihood_scaled * quad_weights.reshape(1, -1), axis=1)
+    denominator = np.where(denominator < 1e-9, 1e-9, denominator)
+    return numerator / denominator
+
+
 def eap_grm(res_matrix, mask_matrix, a_params, b_params_padded, b_mask, n_categories, quad_points, quad_weights):
     """
     使用完全向量化的EAP方法为所有被试估计GRM模型的能力值。

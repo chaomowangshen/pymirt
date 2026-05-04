@@ -1,9 +1,9 @@
 from .units import (
-    analyze_data_matrix, irt_em, rasch_em, grm_em_stepwise, grm_em_standard,
-    eap_2pl, eap_grm, pad_grm_parameters, create_irt_quadrature,
+    analyze_data_matrix, irt_em, rasch_em, irt_3pl_em, grm_em_stepwise, grm_em_standard,
+    eap_2pl, eap_3pl, eap_grm, pad_grm_parameters, create_irt_quadrature,
     dataframe_to_sparse_response, analyze_sparse_response,
-    irt_em_sparse, rasch_em_sparse, grm_em_stepwise_sparse, grm_em_standard_sparse,
-    eap_2pl_sparse, eap_grm_sparse,
+    irt_em_sparse, rasch_em_sparse, irt_3pl_em_sparse, grm_em_stepwise_sparse, grm_em_standard_sparse,
+    eap_2pl_sparse, eap_3pl_sparse, eap_grm_sparse,
     irt_mcem_sparse, irt_mcmc_sparse, irt_saem_sparse,
     rasch_mcem_sparse, rasch_mcmc_sparse, rasch_saem_sparse,
     grm_mcem_stepwise_sparse, grm_mcem_standard_sparse,
@@ -49,7 +49,7 @@ def irt(
     model = model.lower()
     method = method.lower()
     grm_type = grm_type.lower()
-    binary_models = {'1pl', 'rasch', '2pl'}
+    binary_models = {'1pl', 'rasch', '2pl', '3pl'}
     #检查2pl模型的数据是否符合要求，即是否为二元数据
     if model in binary_models:
         # 检查排除 NA 后是否仅含 0 或 1（兼容整数和浮点数）
@@ -58,9 +58,9 @@ def irt(
         if not stacked.isin(valid_values).all():
             raise ValueError("二分IRT模型要求数据（排除缺失值后）必须为二元作答（0或1），请检查数据。")
         
-    if model not in ['1pl', 'rasch', '2pl', 'grm']:
+    if model not in ['1pl', 'rasch', '2pl', '3pl', 'grm']:
         raise ValueError(
-            f"model参数必须为'1pl', 'rasch', '2pl', 'grm',当前模型为{model}。\n"
+            f"model参数必须为'1pl', 'rasch', '2pl', '3pl', 'grm',当前模型为{model}。\n"
         )
     if method not in ['em', 'mcem', 'saem', 'mcmc']:
         raise ValueError(
@@ -83,6 +83,8 @@ def irt(
         else:
             raise ValueError("n_categories必须为None、列表或一维numpy数组，请检查数据。")
     if method != 'em':
+        if model == '3pl':
+            raise NotImplementedError("3PL sampling methods are not implemented yet.")
         sparse_response = dataframe_to_sparse_response(response_df)
         analyze_sparse_response(
             sparse_response,
@@ -231,6 +233,18 @@ def irt(
             theta_est = eap_2pl_sparse(
                 sparse_response, a_est, b_est, quad_points, quad_weights
             )
+        elif model == '3pl':
+            a_est, b_est, c_est = irt_3pl_em_sparse(
+                sparse_response,
+                n_quadrature=n_quadrature,
+                max_iter=max_iter,
+                tol=tol,
+                verbose=verbose,
+            )
+            theta_est = eap_3pl_sparse(
+                sparse_response, a_est, b_est, c_est, quad_points, quad_weights
+            )
+            return a_est, b_est, c_est, theta_est
         elif model == 'grm':
             if grm_type == 'step':
                 a_est, b_est = grm_em_stepwise_sparse(
@@ -285,6 +299,10 @@ def irt(
     elif model == '2pl':
         a_est, b_est=irt_em(response_matrix,mask_matrix,n_quadrature,max_iter=max_iter, tol=tol, verbose=verbose)
         theta_est = eap_2pl(response_matrix,mask_matrix, a_est, b_est,quad_points,quad_weights)
+    elif model == '3pl':
+        a_est, b_est, c_est=irt_3pl_em(response_matrix,mask_matrix,n_quadrature,max_iter=max_iter, tol=tol, verbose=verbose)
+        theta_est = eap_3pl(response_matrix,mask_matrix, a_est, b_est, c_est,quad_points,quad_weights)
+        return a_est, b_est, c_est, theta_est
     elif model == 'grm':
         if grm_type == 'step':
             a_est, b_est = grm_em_stepwise(response_matrix, mask_matrix, n_categories, n_quadrature, max_iter=max_iter, tol=tol, verbose=verbose)
@@ -297,7 +315,7 @@ def irt(
         else:
             raise ValueError(f"不支持的GRM类型: {grm_type}，请从 'step', 'stand' 中选择。")
     else:
-        raise ValueError(f"不支持的IRT模型: {model}，请从 '1pl', 'rasch', '2pl', 'grm'中选择。")
+        raise ValueError(f"不支持的IRT模型: {model}，请从 '1pl', 'rasch', '2pl', '3pl', 'grm'中选择。")
     return a_est, b_est, theta_est
 
     

@@ -133,6 +133,64 @@ def rasch_em_sparse(
     return a_est, b_est
 
 
+def irt_3pl_em_sparse(
+    sparse_response, n_quadrature=27, max_iter=100, tol=1e-4, verbose=False
+):
+    n_items = sparse_response.n_items
+    a_est = np.ones(n_items)
+    b_est = np.zeros(n_items)
+    c_est = np.full(n_items, 0.15)
+    theta_quad, weights_quad = create_irt_quadrature(n_quadrature)
+    prev_ll = -np.inf
+    total_time = 0.0
+
+    for iteration in range(max_iter):
+        start_time = time.time()
+        posterior = compute_3pl_posterior_sparse(
+            theta_quad, a_est, b_est, c_est, sparse_response, weights_quad
+        )
+        a_new = a_est.copy()
+        b_new = b_est.copy()
+        c_new = c_est.copy()
+        for item_id in range(n_items):
+            obs_idx = sparse_response.item_observations(item_id)
+            if obs_idx.size == 0:
+                continue
+            users = sparse_response.user_idx[obs_idx]
+            values = sparse_response.values[obs_idx]
+
+            def objective(params):
+                a_j, b_j, c_j = params
+                return -compute_3pl_item_expected_ll_sparse(
+                    theta_quad, a_j, b_j, c_j, users, values, posterior
+                )
+
+            res = minimize(
+                objective,
+                [a_est[item_id], b_est[item_id], c_est[item_id]],
+                method="L-BFGS-B",
+                bounds=[(0.1, 4.0), (-6.0, 6.0), (1e-5, 0.35)],
+            )
+            if res.success:
+                a_new[item_id], b_new[item_id], c_new[item_id] = res.x
+
+        a_est, b_est, c_est = a_new, b_new, c_new
+        current_ll = compute_3pl_expected_ll_sparse(
+            theta_quad, a_est, b_est, c_est, sparse_response, posterior
+        )
+        total_time += time.time() - start_time
+        if verbose:
+            print(
+                f"=== sparse 3PL iter {iteration + 1}/{max_iter}, "
+                f"delta_ll={current_ll - prev_ll:.6f}, elapsed={total_time:.2f}s ==="
+            )
+        if iteration > 0 and abs(current_ll - prev_ll) < tol:
+            break
+        prev_ll = current_ll
+
+    return a_est, b_est, c_est
+
+
 def grm_em_stepwise_sparse(
     sparse_response, n_categories, n_quadrature=27, max_iter=100, tol=1e-4, verbose=False
 ):
@@ -445,6 +503,13 @@ def eap_2pl_sparse(sparse_response, a_params, b_params, quad_points, quad_weight
     return _eap_from_loglik(log_lik, quad_points, quad_weights)
 
 
+def eap_3pl_sparse(sparse_response, a_params, b_params, c_params, quad_points, quad_weights):
+    log_lik = compute_3pl_user_loglik_sparse(
+        quad_points, a_params, b_params, c_params, sparse_response
+    )
+    return _eap_from_loglik(log_lik, quad_points, quad_weights)
+
+
 def eap_grm_sparse(
     sparse_response, a_params, b_params, n_categories, quad_points, quad_weights
 ):
@@ -488,6 +553,29 @@ def compute_2pl_expected_ll_sparse(theta, a, b, sparse_response, posterior):
 
 def compute_2pl_item_expected_ll_sparse(theta, a_j, b_j, users, values, posterior):
     p = _sigmoid(a_j * (theta - b_j))
+    log_obs = _binary_log_obs(p.reshape(-1, 1), values).T
+    return float(np.sum(log_obs * posterior[users]))
+
+
+def compute_3pl_posterior_sparse(theta, a, b, c, sparse_response, quad_weights):
+    log_lik = compute_3pl_user_loglik_sparse(theta, a, b, c, sparse_response)
+    return _posterior_from_loglik(log_lik, quad_weights)
+
+
+def compute_3pl_user_loglik_sparse(theta, a, b, c, sparse_response):
+    base = _sigmoid(np.outer(theta, a) - np.asarray(a) * np.asarray(b))
+    p = np.asarray(c).reshape(1, -1) + (1.0 - np.asarray(c).reshape(1, -1)) * base
+    log_obs = _binary_log_obs(p[:, sparse_response.item_idx], sparse_response.values).T
+    return _sum_by_user(log_obs, sparse_response)
+
+
+def compute_3pl_expected_ll_sparse(theta, a, b, c, sparse_response, posterior):
+    user_loglik = compute_3pl_user_loglik_sparse(theta, a, b, c, sparse_response)
+    return float(np.sum(user_loglik * posterior))
+
+
+def compute_3pl_item_expected_ll_sparse(theta, a_j, b_j, c_j, users, values, posterior):
+    p = c_j + (1.0 - c_j) * _sigmoid(a_j * (theta - b_j))
     log_obs = _binary_log_obs(p.reshape(-1, 1), values).T
     return float(np.sum(log_obs * posterior[users]))
 

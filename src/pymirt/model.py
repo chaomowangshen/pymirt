@@ -19,13 +19,26 @@ class IRTResult:
     n_categories: Optional[np.ndarray]
     use_sparse: bool
     config: Dict[str, Any]
+    c_: Optional[np.ndarray] = field(default=None, repr=False)
 
     def as_tuple(self):
+        if self.model.lower() == "3pl":
+            return self.a_, self.b_, self.c_, self.theta_
         return self.a_, self.b_, self.theta_
 
     def item_params(self):
         a = np.asarray(self.a_, dtype=float)
         model = self.model.lower()
+
+        if model == "3pl":
+            return pd.DataFrame(
+                {
+                    "item": np.arange(a.size),
+                    "a": a,
+                    "b": np.asarray(self.b_, dtype=float),
+                    "c": np.asarray(self.c_, dtype=float),
+                }
+            )
 
         if model in {"1pl", "rasch", "2pl"}:
             return pd.DataFrame(
@@ -58,13 +71,16 @@ class IRTResult:
         )
 
     def summary(self):
+        parameter_values = [self.a_, self.b_, self.theta_]
+        if self.c_ is not None:
+            parameter_values.append(self.c_)
         return {
             "model": self.model,
             "method": self.method,
             "n_users": int(np.asarray(self.theta_).size),
             "n_items": int(np.asarray(self.a_).size),
             "use_sparse": bool(self.use_sparse),
-            "n_parameters": _count_scalars(self.a_, self.b_, self.theta_),
+            "n_parameters": _count_scalars(*parameter_values),
         }
 
 
@@ -147,7 +163,7 @@ class IRT:
     result_: Optional[IRTResult] = field(default=None, init=False, repr=False)
 
     def fit(self, response_df):
-        a_est, b_est, theta_est = _irt(
+        estimates = _irt(
             response_df=response_df,
             model=self.model,
             method=self.method,
@@ -162,6 +178,11 @@ class IRT:
             verbose=self.verbose,
             use_sparse=self.use_sparse,
         )
+        if str(self.model).lower() == "3pl":
+            a_est, b_est, c_est, theta_est = estimates
+        else:
+            a_est, b_est, theta_est = estimates
+            c_est = None
         self.result_ = IRTResult(
             a_=np.asarray(a_est, dtype=float),
             b_=_copy_parameter(b_est),
@@ -172,6 +193,7 @@ class IRT:
             n_categories=_copy_optional_array(self.n_categories),
             use_sparse=bool(self.use_sparse),
             config=self._config(),
+            c_=_copy_optional_array(c_est),
         )
         return self.result_
 

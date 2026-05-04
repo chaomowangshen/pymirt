@@ -60,6 +60,28 @@ def generate_rasch_data(n=1000, items=20, missing_rate=0.2, seed=None):
 generate_1pl_data = generate_rasch_data
 
 
+def generate_3pl_data(n=1000, items=20, missing_rate=0.2, seed=None):
+    """
+    Generate binary 3PL response data with missing values.
+    """
+    if seed is not None:
+        np.random.seed(seed)
+
+    a_true = np.random.uniform(0.5, 2.5, items)
+    b_true = np.random.normal(0, 1.0, items)
+    c_true = np.random.uniform(0.05, 0.25, items)
+    theta = np.random.normal(0, 1, n)
+    logits = a_true.reshape(1, -1) * (theta.reshape(-1, 1) - b_true.reshape(1, -1))
+    logistic = 1 / (1 + np.exp(-np.clip(logits, -35, 35)))
+    p_correct = c_true.reshape(1, -1) + (1 - c_true.reshape(1, -1)) * logistic
+    response = (np.random.rand(n, items) < p_correct).astype(int)
+    mask = np.random.choice([0, 1], size=(n, items), p=[missing_rate, 1 - missing_rate])
+    mask_matrix = mask.astype(float)
+    response_missing = response.copy().astype(float)
+    response_missing[mask == 0] = np.nan
+    return response_missing, mask_matrix, a_true, b_true, c_true, theta
+
+
 
 def generate_m2pl_data(n=1000, items=20, dim=3, missing_rate=0.2, seed=None):
     """

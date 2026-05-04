@@ -2,6 +2,7 @@ from scipy.optimize import minimize
 import numpy as np
 import time
 from .units import (create_irt_quadrature,compute_2pl_posterior,compute_2pl_log_likelihood,
+                    compute_3pl_posterior,compute_3pl_log_likelihood,
                     compute_grm_posterior,compute_grm_item_log_likelihood,
                     compute_grm_log_likelihood,ensure_ordered_thresholds)
 
@@ -170,6 +171,68 @@ def rasch_em(response_matrix, mask_matrix, n_quadrature=27, max_iter=100, tol=1e
         verbose=verbose,
     )
     return a_est, b_est
+
+
+def irt_3pl_em(response_matrix, mask_matrix, n_quadrature=27, max_iter=100, tol=1e-4, verbose=False):
+    """
+    Single-dimensional 3PL item parameter estimation via EM.
+    """
+    response_matrix = np.nan_to_num(response_matrix)
+    _, n_items = response_matrix.shape
+    a_est = np.ones(n_items)
+    b_est = np.zeros(n_items)
+    c_est = np.full(n_items, 0.15)
+    theta_quad, weights_quad = create_irt_quadrature(n_quadrature)
+    prev_ll = -np.inf
+
+    for iteration in range(max_iter):
+        start_time = time.time()
+        posterior = compute_3pl_posterior(
+            theta_quad, a_est, b_est, c_est, response_matrix, mask_matrix, weights_quad
+        )
+        a_new = a_est.copy()
+        b_new = b_est.copy()
+        c_new = c_est.copy()
+        for j in range(n_items):
+            response_j = response_matrix[:, j].reshape(-1, 1)
+            mask_j = mask_matrix[:, j].reshape(-1, 1)
+
+            def objective(params):
+                a_j, b_j, c_j = params
+                expected_ll = compute_3pl_log_likelihood(
+                    theta_quad,
+                    np.array([a_j]),
+                    np.array([b_j]),
+                    np.array([c_j]),
+                    response_j,
+                    mask_j,
+                    posterior,
+                )
+                return -expected_ll
+
+            res = minimize(
+                objective,
+                [a_est[j], b_est[j], c_est[j]],
+                method="L-BFGS-B",
+                bounds=[(0.1, 4.0), (-6.0, 6.0), (1e-5, 0.35)],
+            )
+            if res.success:
+                a_new[j], b_new[j], c_new[j] = res.x
+
+        a_est, b_est, c_est = a_new, b_new, c_new
+        current_ll = compute_3pl_log_likelihood(
+            theta_quad, a_est, b_est, c_est, response_matrix, mask_matrix, posterior
+        )
+        if verbose:
+            print(
+                f"=== 3PL iter {iteration + 1}/{max_iter}, "
+                f"delta_ll={current_ll - prev_ll:.6f}, elapsed={time.time() - start_time:.2f}s ==="
+            )
+        if iteration > 0 and abs(current_ll - prev_ll) < tol:
+            break
+        prev_ll = current_ll
+
+    return a_est, b_est, c_est
 
 
 def grm_em_stepwise(response_matrix,mask_matrix, n_categories, n_quadrature=27, max_iter=100, tol=1e-4, verbose=False):
