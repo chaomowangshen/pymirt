@@ -63,7 +63,7 @@ def analyze_data_matrix(df,n_categories=None,verbose=False):
             issues_list.append((f"  列 '{col_name}' 的类别数量 {len(value_counts)} 与预期的 {n_categories[i]} 不一致。\n"))
         min_count = value_counts.min()
         if min_count < 10:
-            issues_found = True
+            missing_flag = True
             for category, count in value_counts.items():
                 if count < 10:
                     display_category = int(category) if category == int(category) else category
