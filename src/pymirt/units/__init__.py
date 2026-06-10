@@ -9,3 +9,4 @@ from .mirt_item_mcmc import *
 from .sparse_data import *
 from .sparse_item_est import *
 from .sparse_item_mcmc import *
+from .neural_item_est import *

@@ -9,6 +9,7 @@ English | [中文](README_zh.md)
 - **Unidimensional IRT Models**: Supports Rasch/1PL, 2PL, 3PL, and Graded Response Model (GRM)
 - **Multidimensional IRT Models**: Supports Multidimensional 2PL (M2PL) and Multidimensional Graded Response Model (MGRM)
 - **Multiple Estimation Methods**: Supports EM, Monte Carlo EM (MCEM), SAEM, and MCMC methods
+- **Neural Backend**: Optional CEN-QB neural estimation for unidimensional 1PL/Rasch, 2PL, and GRM (`step`/`stand`) via `method='nn'`
 - **Ability Estimation**: Supports Expected A Posteriori (EAP) and Markov Chain Monte Carlo estimation
 - **Missing Data Handling**: Supports parameter estimation with response matrices containing missing data
 - **Sparse Backend**: Optional sparse computation for high-missing response data via `use_sparse=True`
@@ -29,6 +30,12 @@ Or install directly from GitHub:
 
 ```bash
 pip install git+https://github.com/chaomowangshen/pymirt.git
+```
+
+For neural estimation, install the optional PyTorch extra:
+
+```bash
+pip install -e .[nn]
 ```
 
 ## Quick Start
@@ -55,6 +62,20 @@ a_est, b_est, theta_est = irt(
 print(f"Discrimination parameters: {a_est}")
 print(f"Difficulty parameters: {b_est}")
 print(f"Ability estimates: {theta_est}")
+```
+
+Neural GRM estimation supports both cumulative binary splitting and direct GRM likelihood:
+
+```python
+n_categories = [4] * response_df.shape[1]  # Scores are coded as 0, 1, 2, 3
+
+a_est, b_est, theta_est = irt(
+    response_df,
+    model='grm',
+    grm_type='stand',  # Use 'step' for cumulative binary splitting
+    method='nn',
+    n_categories=n_categories,
+)
 ```
 
 ### Multidimensional IRT Model
@@ -148,8 +169,10 @@ Result objects provide `as_tuple()` for the original return style, plus `item_pa
 - `method`: Estimation method ('em', 'mcem', 'saem', or 'mcmc')
 - Rasch/1PL supports EM, MCMC, MCEM, and SAEM with fixed discrimination (`a = 1`).
 - 3PL currently supports EM/EAP only; sampling methods are not implemented yet.
+- `method='nn'`: Optional CEN-QB neural backend for 1PL/Rasch, 2PL, and GRM. For GRM, `grm_type='step'` uses cumulative binary pseudo-items and `grm_type='stand'` uses the direct GRM category likelihood.
 - `n_quadrature`: Number of Gauss-Hermite quadrature points
 - `n_categories`: Number of categories for each item (for GRM models)
+- Neural GRM scores must be integer coded from `0` through `n_categories[j] - 1`.
 - `n_samples`: Number of MCMC samples (for MCMC/MCEM methods)
 - `burn_in`: MCMC burn-in period (for MCMC/MCEM methods)
 - `sample_interval`: MCMC sample interval (for MCEM method)

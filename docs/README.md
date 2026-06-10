@@ -17,6 +17,7 @@ PyMIRT 是一个用于项目反应理论（Item Response Theory, IRT）参数估
 
 - 支持单维和多维 IRT 模型，包括 Rasch/1PL、2PL、3PL、GRM、M2PL 和 MGRM
 - 多种估计方法（EM 算法、MCMC）
+- 可选 CEN-QB 神经网络估计（`method='nn'`，用于单维 1PL/Rasch 和 2PL）
 - 可选稀疏计算后端（`use_sparse=True`）
 - 对象式 API（`IRT` / `MIRT`）
 - 灵活的配置选项
@@ -45,6 +46,24 @@ a_est, b_est, theta_est = irt(response_df, model='rasch', method='mcmc')
 
 # 3PL 当前支持 EM/EAP，返回 (a, b, c, theta)
 a_est, b_est, c_est, theta_est = irt(response_df, model='3pl')
+
+# CEN-QB 神经网络后端需要安装 pymirt[nn]
+a_est, b_est, theta_est = irt(
+    response_df,
+    model='2pl',
+    method='nn',
+    nn_config={'epochs': 200, 'random_state': 123}
+)
+
+# 单维多级计分神经估计：step 和 stand 均可用
+n_categories = [4] * response_df.shape[1]
+a_est, b_est, theta_est = irt(
+    response_df,
+    model='grm',
+    grm_type='stand',
+    method='nn',
+    n_categories=n_categories,
+)
 ```
 
 也可以使用对象式 API 获取摘要和参数表：

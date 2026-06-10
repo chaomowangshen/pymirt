@@ -9,6 +9,7 @@ PyMIRT 是一个用于项目反应理论（Item Response Theory, IRT）参数估
 - **单维 IRT 模型**：支持 Rasch/1PL、2PL、3PL 模型和等级反应模型（GRM）
 - **多维 IRT 模型**：支持多维 2PL 模型（M2PL）和多维等级反应模型（MGRM）
 - **多种估计方法**：支持 EM、蒙特卡洛 EM（MCEM）、SAEM 和 MCMC 方法
+- **神经网络后端**：通过 `method='nn'` 为单维 1PL/Rasch、2PL 和 GRM（`step`/`stand`）提供可选 CEN-QB 神经估计
 - **能力估计**：支持期望后验估计（EAP）和马尔可夫链蒙特卡洛估计
 - **缺失数据处理**：支持含有缺失数据的作答矩阵进行参数估计
 - **稀疏计算后端**：通过 `use_sparse=True` 支持高缺失作答数据的稀疏计算
@@ -29,6 +30,26 @@ pip install -e .
 
 ```bash
 pip install git+https://github.com/chaomowangshen/pymirt.git
+```
+
+如需使用神经网络估计，请安装可选 PyTorch 依赖：
+
+```bash
+pip install -e .[nn]
+```
+
+神经网络后端也支持单维多级计分 GRM。`grm_type='step'` 使用累积二分伪题目，`grm_type='stand'` 直接优化 GRM 类别似然：
+
+```python
+n_categories = [4] * response_df.shape[1]  # 每题计分为 0、1、2、3
+
+a_est, b_est, theta_est = irt(
+    response_df,
+    model='grm',
+    grm_type='stand',
+    method='nn',
+    n_categories=n_categories,
+)
 ```
 
 ## 快速开始
@@ -148,8 +169,10 @@ print(mirt_result.person_params().head())
 - `method`: 估计方法（'em', 'mcem', 'saem', 'mcmc'）
 - Rasch/1PL 支持 EM、MCMC、MCEM 和 SAEM，区分度固定为 `a = 1`。
 - 3PL 当前仅支持 EM/EAP；MCMC、MCEM 和 SAEM 留到后续阶段。
+- `method='nn'`: 单维 1PL/Rasch、2PL 和 GRM 的可选 CEN-QB 神经网络后端；GRM 的 `step` 使用累积二分伪题目，`stand` 使用直接类别似然。
 - `n_quadrature`: 高斯-厄米特求积点数
 - `n_categories`: 项目类别数（用于等级反应模型）
+- 神经 GRM 作答必须使用整数 `0` 到 `n_categories[j] - 1` 编码。
 - `n_samples`: MCMC 样本数（用于 MCMC/MCEM 方法）
 - `burn_in`: MCMC 预热期（用于 MCMC/MCEM 方法）
 - `sample_interval`: MCMC 采样间隔（用于 MCEM 方法）

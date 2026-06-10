@@ -11,6 +11,7 @@ from .units import (
     mirt_mcem_sparse, mgrm_mcem_stepwise_sparse, mgrm_mcem_standard_sparse,
     mirt_mcmc_sparse, mgrm_mcmc_stepwise_sparse, mgrm_mcmc_standard_sparse,
     mirt_saem_sparse, mgrm_saem_stepwise_sparse, mgrm_saem_standard_sparse,
+    neural_mirt_est, neural_mgrm_est,
     )
 import numpy as np
 import pandas as pd
@@ -31,7 +32,9 @@ def mirt(
         max_iter: int = 100,
         tol: float = 1e-4,
         verbose: bool = False,
-        use_sparse: bool = False
+        use_sparse: bool = False,
+        nn_config=None,
+        _return_backend_model: bool = False,
         ):
     '''
     根据反应矩阵，使用IRT模型估计被试的能力值和项目参数。
@@ -68,9 +71,9 @@ def mirt(
         raise ValueError("Q矩阵必须为二维数组，请检查Q矩阵。")
 
     #查看method和model是否符合要求
-    if method not in ['em', 'mcem','saem', 'mcmc']:
+    if method not in ['em', 'mcem','saem', 'mcmc', 'nn']:
         raise ValueError(
-            f"method参数必须为'em'、'mcem'、'saem'或'mcmc'，当前方法为{method}。\n"
+            f"method参数必须为'em'、'mcem'、'saem'、'mcmc'或'nn'，当前方法为{method}。\n"
         )
     if model not in ['m2pl', 'mgrm']:
         raise ValueError(
@@ -98,6 +101,28 @@ def mirt(
         raise ValueError(
             f"Q矩阵的行数({Q.shape[0]})与响应矩阵的列数({response_df.shape[1]})不一致，请检查数据。"
         )
+    if method == 'nn':
+        if model == 'm2pl':
+            a_est, d_est, theta_est, backend_model = neural_mirt_est(
+                response_df,
+                Q,
+                nn_config=nn_config,
+                verbose=verbose,
+            )
+        elif model == 'mgrm':
+            a_est, d_est, theta_est, backend_model = neural_mgrm_est(
+                response_df,
+                Q,
+                n_categories,
+                grm_type=grm_type,
+                nn_config=nn_config,
+                verbose=verbose,
+            )
+        else:
+            raise NotImplementedError("Neural MIRT currently supports only M2PL and MGRM.")
+        if _return_backend_model:
+            return a_est, d_est, theta_est, backend_model
+        return a_est, d_est, theta_est
     if use_sparse:
         if model == 'mgrm' and n_categories is None:
             raise ValueError("n_categories is required when model='mgrm'.")

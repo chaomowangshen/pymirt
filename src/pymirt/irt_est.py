@@ -9,6 +9,7 @@ from .units import (
     grm_mcem_stepwise_sparse, grm_mcem_standard_sparse,
     grm_mcmc_stepwise_sparse, grm_mcmc_standard_sparse,
     grm_saem_stepwise_sparse, grm_saem_standard_sparse,
+    neural_irt_est, neural_grm_est,
 )
 import numpy as np
 import pandas as pd
@@ -27,7 +28,9 @@ def irt(
         max_iter: int = 100,
         tol: float = 1e-4,
         verbose: bool = False,
-        use_sparse: bool = False
+        use_sparse: bool = False,
+        nn_config=None,
+        _return_backend_model: bool = False,
         ):
     
     '''
@@ -62,9 +65,9 @@ def irt(
         raise ValueError(
             f"model参数必须为'1pl', 'rasch', '2pl', '3pl', 'grm',当前模型为{model}。\n"
         )
-    if method not in ['em', 'mcem', 'saem', 'mcmc']:
+    if method not in ['em', 'mcem', 'saem', 'mcmc', 'nn']:
         raise ValueError(
-            f"method must be one of 'em', 'mcem', 'saem', or 'mcmc'; got {method}."
+            f"method must be one of 'em', 'mcem', 'saem', 'mcmc', or 'nn'; got {method}."
         )
     if grm_type not in ['step', 'stand']:
         raise ValueError(
@@ -82,6 +85,30 @@ def irt(
                 raise ValueError("n_categories必须为一维数组或列表，请检查数据。")
         else:
             raise ValueError("n_categories必须为None、列表或一维numpy数组，请检查数据。")
+    if method == 'nn':
+        if model in {'1pl', 'rasch', '2pl'}:
+            a_est, b_est, theta_est, backend_model = neural_irt_est(
+                response_df,
+                model=model,
+                nn_config=nn_config,
+                verbose=verbose,
+            )
+        elif model == 'grm':
+            a_est, b_est, theta_est, backend_model = neural_grm_est(
+                response_df,
+                n_categories=n_categories,
+                grm_type=grm_type,
+                nn_config=nn_config,
+                verbose=verbose,
+            )
+        else:
+            raise NotImplementedError(
+                "Neural IRT currently supports only 1PL/Rasch, 2PL, and GRM."
+            )
+        if _return_backend_model:
+            return a_est, b_est, theta_est, backend_model
+        return a_est, b_est, theta_est
+
     if method != 'em':
         if model == '3pl':
             raise NotImplementedError("3PL sampling methods are not implemented yet.")

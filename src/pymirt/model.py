@@ -160,9 +160,12 @@ class IRT:
     tol: float = 1e-4
     verbose: bool = False
     use_sparse: bool = False
+    nn_config: Any = None
     result_: Optional[IRTResult] = field(default=None, init=False, repr=False)
+    backend_model_: Any = field(default=None, init=False, repr=False)
 
     def fit(self, response_df):
+        method_name = str(self.method).lower()
         estimates = _irt(
             response_df=response_df,
             model=self.model,
@@ -177,12 +180,20 @@ class IRT:
             tol=self.tol,
             verbose=self.verbose,
             use_sparse=self.use_sparse,
+            nn_config=self.nn_config,
+            _return_backend_model=(method_name == "nn"),
         )
-        if str(self.model).lower() == "3pl":
+        self.backend_model_ = None
+        if method_name == "nn":
+            a_est, b_est, theta_est, backend_model = estimates
+            c_est = None
+            self.backend_model_ = backend_model
+        elif str(self.model).lower() == "3pl":
             a_est, b_est, c_est, theta_est = estimates
         else:
             a_est, b_est, theta_est = estimates
             c_est = None
+        result_use_sparse = bool(self.use_sparse or method_name == "nn")
         self.result_ = IRTResult(
             a_=np.asarray(a_est, dtype=float),
             b_=_copy_parameter(b_est),
@@ -191,7 +202,7 @@ class IRT:
             method=str(self.method).lower(),
             grm_type=str(self.grm_type).lower(),
             n_categories=_copy_optional_array(self.n_categories),
-            use_sparse=bool(self.use_sparse),
+            use_sparse=result_use_sparse,
             config=self._config(),
             c_=_copy_optional_array(c_est),
         )
@@ -211,6 +222,7 @@ class IRT:
             "tol": self.tol,
             "verbose": self.verbose,
             "use_sparse": self.use_sparse,
+            "nn_config": _copy_optional_config(self.nn_config),
         }
 
 
@@ -229,10 +241,13 @@ class MIRT:
     tol: float = 1e-4
     verbose: bool = False
     use_sparse: bool = False
+    nn_config: Any = None
     result_: Optional[MIRTResult] = field(default=None, init=False, repr=False)
+    backend_model_: Any = field(default=None, init=False, repr=False)
 
     def fit(self, response_df):
-        a_est, d_est, theta_est = _mirt(
+        method_name = str(self.method).lower()
+        estimates = _mirt(
             response_df=response_df,
             Q=self.Q,
             method=self.method,
@@ -247,7 +262,15 @@ class MIRT:
             tol=self.tol,
             verbose=self.verbose,
             use_sparse=self.use_sparse,
+            nn_config=self.nn_config,
+            _return_backend_model=(method_name == "nn"),
         )
+        self.backend_model_ = None
+        if method_name == "nn":
+            a_est, d_est, theta_est, backend_model = estimates
+            self.backend_model_ = backend_model
+        else:
+            a_est, d_est, theta_est = estimates
         self.result_ = MIRTResult(
             a_=np.asarray(a_est, dtype=float),
             d_=_copy_parameter(d_est),
@@ -257,7 +280,7 @@ class MIRT:
             method=str(self.method).lower(),
             grm_type=str(self.grm_type).lower(),
             n_categories=_copy_optional_array(self.n_categories),
-            use_sparse=bool(self.use_sparse),
+            use_sparse=bool(self.use_sparse or method_name == "nn"),
             config=self._config(),
         )
         return self.result_
@@ -276,6 +299,7 @@ class MIRT:
             "tol": self.tol,
             "verbose": self.verbose,
             "use_sparse": self.use_sparse,
+            "nn_config": _copy_optional_config(self.nn_config),
         }
 
 
@@ -290,6 +314,12 @@ def _copy_optional_array(value):
     if value is None:
         return None
     return np.asarray(value).copy()
+
+
+def _copy_optional_config(value):
+    if value is None:
+        return None
+    return dict(value)
 
 
 def _copy_parameter(value):
